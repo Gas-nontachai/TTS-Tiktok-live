@@ -1,20 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { LiveComment } from "../types";
 import { useAppStore } from "../stores/appStore";
-
-function renderTemplate(template: string, comment: LiveComment) {
-  return template
-    .replaceAll("{nickname}", comment.nickname)
-    .replaceAll("{username}", comment.username)
-    .replaceAll("{comment}", comment.comment);
-}
+import { cleanTtsText } from "../utils/helpers";
+import { synthesizeTts } from "../services/api";
 
 export function useSpeechQueue() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const speakingRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef("");
   const config = useAppStore((state) => state.config);
-  const queue = useAppStore((state) => state.queue);
-  const setQueue = useAppStore((state) => state.setQueue);
   const setCurrentSpeakingText = useAppStore((state) => state.setCurrentSpeakingText);
 
   useEffect(() => {
@@ -33,18 +27,63 @@ export function useSpeechQueue() {
 
   const speakText = useCallback(
     (text: string, onDone?: () => void) => {
-      if (!("speechSynthesis" in window)) {
+      const cleanText = cleanTtsText(text);
+
+      if (config.tts.muted || !cleanText) {
+        onDone?.();
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(text);
+      if (config.tts.engine === "local-thai") {
+        speakingRef.current = true;
+        setCurrentSpeakingText(cleanText);
+
+        void synthesizeTts(cleanText)
+          .then((blob) => {
+            if (audioUrlRef.current) {
+              URL.revokeObjectURL(audioUrlRef.current);
+            }
+
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            audio.volume = config.tts.volume;
+            audioRef.current = audio;
+            audioUrlRef.current = audioUrl;
+
+            const done = () => {
+              speakingRef.current = false;
+              setCurrentSpeakingText("");
+              audioRef.current = null;
+              URL.revokeObjectURL(audioUrl);
+              audioUrlRef.current = "";
+              onDone?.();
+            };
+
+            audio.addEventListener("ended", done, { once: true });
+            audio.addEventListener("error", done, { once: true });
+            return audio.play();
+          })
+          .catch(() => {
+            speakingRef.current = false;
+            setCurrentSpeakingText("");
+            onDone?.();
+          });
+        return;
+      }
+
+      if (!("speechSynthesis" in window)) {
+        onDone?.();
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(cleanText);
       utterance.lang = config.tts.lang;
       utterance.rate = config.tts.rate;
       utterance.pitch = config.tts.pitch;
       utterance.volume = config.tts.volume;
       utterance.voice = voices.find((voice) => voice.name === config.tts.voiceName) ?? null;
       speakingRef.current = true;
-      setCurrentSpeakingText(text);
+      setCurrentSpeakingText(cleanText);
 
       utterance.onend = () => {
         speakingRef.current = false;
@@ -60,33 +99,21 @@ export function useSpeechQueue() {
 
       window.speechSynthesis.speak(utterance);
     },
-    [config.tts.lang, config.tts.pitch, config.tts.rate, config.tts.voiceName, config.tts.volume, setCurrentSpeakingText, setQueue, voices]
-  );
-
-  useEffect(() => {
-    if (!config.tts.enabled || speakingRef.current || queue.length === 0) {
-      return;
-    }
-
-    speakText(renderTemplate(config.tts.template, queue[0]), () => {
-      setQueue(useAppStore.getState().queue.slice(1));
-    });
-  }, [config.tts.enabled, config.tts.template, queue, speakText]);
-
-  const testSpeak = useCallback(
-    (text: string) => {
-      if (!text.trim()) {
-        return;
-      }
-
-      window.speechSynthesis.cancel();
-      speakingRef.current = false;
-      speakText(text.trim());
-    },
-    [speakText]
+    [config.tts.engine, config.tts.lang, config.tts.muted, config.tts.pitch, config.tts.rate, config.tts.voiceName, config.tts.volume, setCurrentSpeakingText, voices]
   );
 
   const stopSpeaking = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = "";
+    }
+
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
@@ -97,7 +124,9 @@ export function useSpeechQueue() {
 
   return {
     voices,
-    testSpeak,
-    stopSpeaking
+    speakText,
+    testSpeak: speakText,
+    stopSpeaking,
+    isSpeaking: () => speakingRef.current
   };
 }

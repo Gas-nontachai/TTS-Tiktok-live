@@ -2,17 +2,173 @@
   "tiktok": {
     "username": "@nontachimura"
   },
+  "alerts": {
+    "share": {
+      "enabled": true,
+      "playSound": true,
+      "ttsEnabled": true,
+      "template": "{username} แชร์ไลฟ์แล้ว🫰",
+      "durationMs": 4000,
+      "cooldownMs": 5000,
+      "volume": 80,
+      "enterAnimation": "slide-up",
+      "exitAnimation": "flip",
+      "animationDurationMs": 300,
+      "stylePreset": "glass"
+    },
+    "follow": {
+      "enabled": true,
+      "playSound": true,
+      "ttsEnabled": true,
+      "template": "ขอบคุณ {username} ที่ติดตามครับ😊",
+      "durationMs": 5000,
+      "cooldownMs": 3000,
+      "volume": 80,
+      "enterAnimation": "pop",
+      "exitAnimation": "fade",
+      "animationDurationMs": 320,
+      "stylePreset": "neon"
+    },
+    "gift": {
+      "enabled": true,
+      "playSound": true,
+      "ttsEnabled": true,
+      "template": "ขอบคุณ {username} สำหรับ {giftName} x{giftCount}",
+      "durationMs": 6000,
+      "cooldownMs": 0,
+      "volume": 90,
+      "enterAnimation": "bounce",
+      "exitAnimation": "fade",
+      "animationDurationMs": 360,
+      "stylePreset": "solid",
+      "minGiftCount": 1,
+      "minDiamondCount": 0,
+      "waitForRepeatEnd": true
+    }
+  },
+  "alertQueue": {
+    "maxQueueSize": 50,
+    "allowGiftInterrupt": true,
+    "clearQueueOnDisconnect": true
+  },
+  "viewerCount": {
+    "enabled": true,
+    "position": "top-right",
+    "showIcon": true,
+    "label": "ผู้ชม",
+    "fontSize": 28,
+    "animationPreset": "pulse"
+  },
+  "likeHearts": {
+    "enabled": true,
+    "maxHeartsOnScreen": 30,
+    "heartSize": 32,
+    "animationDurationMs": 1800,
+    "spawnPosition": "bottom-right",
+    "intensity": "normal",
+    "animationPreset": "float-up"
+  },
   "tts": {
     "enabled": true,
+    "playerEnabled": true,
+    "speakAlerts": true,
+    "speakChat": true,
+    "engine": "browser",
+    "localThaiEngine": "thonburian",
+    "localThaiReferenceAudioPath": "",
+    "localThaiReferenceText": "",
+    "localThaiPythonPath": "python",
+    "chatPrefix": "!tts",
+    "queueMode": "queue",
+    "maxQueueSize": 20,
+    "cooldownMs": 1000,
+    "muted": false,
     "lang": "th-TH",
     "voiceName": "",
-    "rate": 1,
+    "rate": 0.9,
     "pitch": 1,
-    "volume": 0.8,
+    "volume": 0.9,
     "template": "{comment}"
   },
-  "queue": {
+  "sounds": {
     "enabled": true,
-    "maxQueueSize": 20
+    "masterVolume": 0.9,
+    "shareVolume": 0.8,
+    "followVolume": 0.8,
+    "giftVolume": 0.9,
+    "sharePreset": "digital",
+    "followPreset": "digital",
+    "giftPreset": "coin"
+  },
+  "overlay": {
+    "showAlerts": true,
+    "showViewerCount": true,
+    "showHearts": true,
+    "showChatInMain": false,
+    "alertPosition": "top-right"
+  },
+  "chat": {
+    "enabled": true,
+    "overlayUrl": "http://localhost:3000/overlay/chat",
+    "display": {
+      "showAvatar": true,
+      "showUsername": true,
+      "showDisplayName": true,
+      "showTimestamp": true,
+      "showBadges": false,
+      "compactMode": true,
+      "messageOrder": "oldest-first"
+    },
+    "queue": {
+      "maxVisibleMessages": 5,
+      "messageLifetimeMs": 5000,
+      "removeOldMessages": true,
+      "newestPosition": "bottom"
+    },
+    "animation": {
+      "enabled": true,
+      "enterAnimation": "pop",
+      "exitAnimation": "slide-up",
+      "durationMs": 300
+    },
+    "theme": {
+      "fontFamily": "system-ui, sans-serif",
+      "fontSize": 24,
+      "usernameFontSize": 22,
+      "messageFontSize": 24,
+      "textColor": "#ffffff",
+      "usernameColor": "#ff4fd8",
+      "backgroundColor": "transparent",
+      "bubbleColor": "rgba(0, 0, 0, 0.55)",
+      "borderColor": "rgba(255, 255, 255, 0.15)",
+      "borderRadius": 16,
+      "opacity": 100,
+      "spacing": 10,
+      "padding": 12,
+      "shadowEnabled": true
+    },
+    "position": {
+      "position": "bottom-left",
+      "width": 520,
+      "height": 700,
+      "offsetX": 40,
+      "offsetY": 80
+    },
+    "filter": {
+      "enabled": true,
+      "blacklistWords": [],
+      "blockedUsernames": [],
+      "hideDuplicateMessages": true,
+      "duplicateWindowMs": 5000,
+      "maxMessageLength": 200,
+      "hideLinks": true,
+      "hideEmojiOnlyMessages": false
+    },
+    "tts": {
+      "enabled": false,
+      "onlyWhenPrefix": "!tts",
+      "cooldownMs": 3000,
+      "maxQueueSize": 10
+    }
   }
 }
