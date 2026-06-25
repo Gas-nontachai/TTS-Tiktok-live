@@ -6,13 +6,13 @@
     "share": {
       "enabled": true,
       "playSound": true,
-      "ttsEnabled": true,
-      "template": "{username} แชร์ไลฟ์แล้ว🫰",
+      "ttsEnabled": false,
+      "template": "{username} แชร์ไลฟ์แล้ว ขอบคุณมากครับ",
       "durationMs": 4000,
       "cooldownMs": 5000,
       "volume": 80,
       "enterAnimation": "slide-up",
-      "exitAnimation": "flip",
+      "exitAnimation": "fade",
       "animationDurationMs": 300,
       "stylePreset": "glass"
     },
@@ -20,7 +20,7 @@
       "enabled": true,
       "playSound": true,
       "ttsEnabled": true,
-      "template": "ขอบคุณ {username} ที่ติดตามครับ😊",
+      "template": "ขอบคุณ {username} ที่กดติดตามครับ",
       "durationMs": 5000,
       "cooldownMs": 3000,
       "volume": 80,
@@ -49,7 +49,7 @@
   "alertQueue": {
     "maxQueueSize": 50,
     "allowGiftInterrupt": true,
-    "clearQueueOnDisconnect": true
+    "clearQueueOnDisconnect": false
   },
   "viewerCount": {
     "enabled": true,
@@ -78,17 +78,17 @@
     "localThaiReferenceAudioPath": "",
     "localThaiReferenceText": "",
     "localThaiPythonPath": "python",
-    "chatPrefix": "!tts",
+    "chatPrefix": "",
     "queueMode": "queue",
     "maxQueueSize": 20,
     "cooldownMs": 1000,
     "muted": false,
     "lang": "th-TH",
-    "voiceName": "",
-    "rate": 0.9,
+    "voiceName": "Microsoft Pattara - Thai (Thailand)",
+    "rate": 1,
     "pitch": 1,
-    "volume": 0.9,
-    "template": "{comment}"
+    "volume": 1,
+    "template": "{displayName} พูดว่า {message}"
   },
   "sounds": {
     "enabled": true,
@@ -96,8 +96,8 @@
     "shareVolume": 0.8,
     "followVolume": 0.8,
     "giftVolume": 0.9,
-    "sharePreset": "digital",
-    "followPreset": "digital",
+    "sharePreset": "chime",
+    "followPreset": "soft-bell",
     "giftPreset": "coin"
   },
   "overlay": {
@@ -114,21 +114,21 @@
       "showAvatar": true,
       "showUsername": true,
       "showDisplayName": true,
-      "showTimestamp": true,
+      "showTimestamp": false,
       "showBadges": false,
-      "compactMode": true,
+      "compactMode": false,
       "messageOrder": "oldest-first"
     },
     "queue": {
-      "maxVisibleMessages": 5,
-      "messageLifetimeMs": 5000,
+      "maxVisibleMessages": 8,
+      "messageLifetimeMs": 15000,
       "removeOldMessages": true,
       "newestPosition": "bottom"
     },
     "animation": {
       "enabled": true,
-      "enterAnimation": "pop",
-      "exitAnimation": "slide-up",
+      "enterAnimation": "slide-up",
+      "exitAnimation": "fade",
       "durationMs": 300
     },
     "theme": {

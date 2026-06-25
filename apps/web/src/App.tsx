@@ -17,7 +17,7 @@ export default function App() {
 
   return (
     <>
-      <GlobalTtsSpeaker />
+      {path === "/dashboard" || path === "/player/tts" ? <GlobalTtsSpeaker /> : null}
       <AppRoutes path={path} />
     </>
   );

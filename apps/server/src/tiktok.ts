@@ -70,6 +70,7 @@ export class TikTokLiveService {
     connection.on(WebcastEvent.FOLLOW, (data) => this.emitMapped("follow", this.mapFollow(data), data));
     connection.on(WebcastEvent.GIFT, (data) => this.emitMapped("gift", this.mapGift(data), data));
     connection.on(WebcastEvent.ROOM_USER, (data) => this.emitMapped("viewer_count", this.mapViewerCount(data), data));
+    connection.on(WebcastEvent.MEMBER, (data) => this.emitMapped("viewer_count", this.mapMemberCount(data), data));
     connection.on(WebcastEvent.LIKE, (data) => this.emitMapped("like", this.mapLike(data), data));
 
     connection.on("disconnected", () => {
@@ -203,7 +204,17 @@ export class TikTokLiveService {
     return {
       id: this.id("viewer"),
       type: "viewer_count",
-      viewerCount: Number(this.firstString(payload.viewerCount, payload.viewer_count, 0)) || 0,
+      viewerCount: this.firstNumber(payload.viewerCount, payload.viewer_count, payload.memberCount, payload.member_count) ?? 0,
+      timestamp: Date.now()
+    };
+  }
+
+  private mapMemberCount(data: unknown): ViewerCountEvent {
+    const payload = this.asRecord(data);
+    return {
+      id: this.id("viewer"),
+      type: "viewer_count",
+      viewerCount: this.firstNumber(payload.memberCount, payload.member_count, payload.viewerCount, payload.viewer_count) ?? 0,
       timestamp: Date.now()
     };
   }
@@ -217,8 +228,8 @@ export class TikTokLiveService {
       timestamp: Date.now(),
       userId: fields.userId,
       username: fields.username,
-      likeCount: Number(this.firstString(payload.likeCount, payload.like_count, 1)) || 1,
-      totalLikeCount: Number(this.firstString(payload.totalLikeCount, payload.total_like_count, 0)) || 0
+      likeCount: this.firstNumber(payload.likeCount, payload.like_count, payload.count, payload.likeMessage && this.asRecord(payload.likeMessage).likeCount, 1),
+      totalLikeCount: this.firstNumber(payload.totalLikeCount, payload.total_like_count, payload.total, payload.likeMessage && this.asRecord(payload.likeMessage).totalLikeCount, undefined)
     };
   }
 
@@ -285,6 +296,27 @@ export class TikTokLiveService {
     }
 
     return "";
+  }
+
+  private firstNumber(...values: unknown[]) {
+    for (const value of values) {
+      if (typeof value === "number" && Number.isFinite(value)) {
+        return value;
+      }
+
+      if (typeof value === "bigint") {
+        return Number(value);
+      }
+
+      if (typeof value === "string" && value.trim()) {
+        const number = Number(value);
+        if (Number.isFinite(number)) {
+          return number;
+        }
+      }
+    }
+
+    return undefined;
   }
 
   private getErrorMessage(error: unknown) {

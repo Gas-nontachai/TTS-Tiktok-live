@@ -28,7 +28,7 @@ export function GlobalTtsSpeaker() {
   const processingRef = useRef(false);
   const duplicatesRef = useRef<Record<string, number>>({});
   const isSpeakerRef = useRef(false);
-  const enabled = config.tts.enabled && !config.tts.muted;
+  const enabled = config.tts.enabled && config.tts.playerEnabled && !config.tts.muted;
 
   useEffect(() => {
     const updateSpeakerLock = () => {

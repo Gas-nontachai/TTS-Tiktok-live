@@ -96,6 +96,17 @@ export interface LogEntry {
   metadata?: Record<string, unknown>;
 }
 
+export interface LocalThaiTtsCheck {
+  name: string;
+  ok: boolean;
+  message: string;
+}
+
+export interface LocalThaiTtsPreflight {
+  ready: boolean;
+  checks: LocalThaiTtsCheck[];
+}
+
 export interface AlertConfig {
   enabled: boolean;
   playSound: boolean;

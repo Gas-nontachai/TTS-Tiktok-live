@@ -1,4 +1,4 @@
-import type { AppConfig, AppStats, ChatConfig, DeepPartial, LogEntry, TikTokStatus } from "../types";
+import type { AppConfig, AppStats, ChatConfig, DeepPartial, LocalThaiTtsPreflight, LogEntry, TikTokStatus } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -61,6 +61,10 @@ export async function synthesizeTts(text: string) {
   }
 
   return response.blob();
+}
+
+export function checkLocalThaiTts() {
+  return request<LocalThaiTtsPreflight>("/api/tts/local-thai/preflight");
 }
 
 export function getLogs() {

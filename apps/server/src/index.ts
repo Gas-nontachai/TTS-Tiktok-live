@@ -1,6 +1,7 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import cors from "cors";
@@ -27,6 +28,8 @@ const server = http.createServer(app);
 const hub = new RealtimeHub();
 const logs: LogEntry[] = [];
 const recentChat: ChatMessageEvent[] = [];
+const localThaiTtsTimeoutMs = 180000;
+const localThaiPreflightTimeoutMs = 30000;
 const stats: AppStats = {
   viewerCount: 0,
   totalLikes: 0,
@@ -98,6 +101,16 @@ app.get("/api/stats", (_req, res) => {
   res.json({ success: true, data: stats });
 });
 
+app.get("/api/tts/local-thai/preflight", async (_req, res, next) => {
+  try {
+    const config = await readConfig();
+    const result = await checkLocalThaiTts(config);
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/tts/synthesize", async (req, res, next) => {
   let tempDir = "";
 
@@ -110,10 +123,12 @@ app.post("/api/tts/synthesize", async (req, res, next) => {
       return;
     }
 
-    if (!config.tts.localThaiReferenceAudioPath.trim() || !config.tts.localThaiReferenceText.trim()) {
+    const preflight = await checkLocalThaiTts(config);
+    if (!preflight.ready) {
       res.status(400).json({
         success: false,
-        message: "Set a reference audio path and matching reference text before using Local Thai TTS"
+        message: `Local Thai TTS is not ready: ${preflight.checks.filter((check) => !check.ok).map((check) => check.message).join("; ")}`,
+        data: preflight
       });
       return;
     }
@@ -130,7 +145,8 @@ app.post("/api/tts/synthesize", async (req, res, next) => {
       referenceAudioPath: config.tts.localThaiReferenceAudioPath,
       referenceText: config.tts.localThaiReferenceText,
       speed: config.tts.rate,
-      outputPath
+      outputPath,
+      timeoutMs: localThaiTtsTimeoutMs
     });
 
     const audio = await readFile(outputPath);
@@ -366,8 +382,12 @@ function handleOverlayEvent(event: OverlayEvent) {
     stats.viewerCount = event.viewerCount;
   }
 
-  if (event.type === "like" && typeof event.totalLikeCount === "number") {
-    stats.totalLikes = event.totalLikeCount;
+  if (event.type === "like") {
+    if (typeof event.totalLikeCount === "number") {
+      stats.totalLikes = event.totalLikeCount;
+    } else if (typeof event.likeCount === "number") {
+      stats.totalLikes += event.likeCount;
+    }
   }
 
   hub.broadcast({ type: "overlay_event", payload: event });
@@ -464,6 +484,100 @@ function countRecentChats() {
   return recentChat.filter((chat) => chat.timestamp >= cutoff).length;
 }
 
+type LocalThaiTtsCheck = {
+  name: string;
+  ok: boolean;
+  message: string;
+};
+
+type LocalThaiTtsPreflight = {
+  ready: boolean;
+  checks: LocalThaiTtsCheck[];
+};
+
+async function checkLocalThaiTts(config: AppConfig): Promise<LocalThaiTtsPreflight> {
+  const checks: LocalThaiTtsCheck[] = [];
+  const pythonPath = config.tts.localThaiPythonPath.trim();
+  const referenceAudioPath = config.tts.localThaiReferenceAudioPath.trim();
+  const referenceText = config.tts.localThaiReferenceText.trim();
+
+  if (!pythonPath) {
+    checks.push({ name: "python", ok: false, message: "Set a Python path before using Local Thai TTS" });
+  } else {
+    try {
+      const version = await runPythonVersionCheck(pythonPath, localThaiPreflightTimeoutMs);
+      checks.push({ name: "python", ok: true, message: `Python is available (${version})` });
+    } catch (error) {
+      checks.push({ name: "python", ok: false, message: error instanceof Error ? error.message : "Python check failed" });
+    }
+
+    try {
+      await runPythonDependencyCheck(pythonPath, localThaiPreflightTimeoutMs);
+      checks.push({ name: "dependencies", ok: true, message: "Python dependencies are installed" });
+    } catch (error) {
+      const details = error instanceof Error ? error.message : "Dependency check failed";
+      checks.push({ name: "dependencies", ok: false, message: `${details}. Install torch, soundfile, and flowtts dependencies` });
+    }
+  }
+
+  if (!referenceAudioPath) {
+    checks.push({ name: "reference-audio", ok: false, message: "Set a reference WAV path before using Local Thai TTS" });
+  } else if (path.extname(referenceAudioPath).toLowerCase() !== ".wav") {
+    checks.push({ name: "reference-audio", ok: false, message: "Reference audio must be a .wav file" });
+  } else {
+    try {
+      await access(referenceAudioPath, fsConstants.R_OK);
+      checks.push({ name: "reference-audio", ok: true, message: "Reference WAV is readable" });
+    } catch {
+      checks.push({ name: "reference-audio", ok: false, message: `Reference audio not found or unreadable: ${referenceAudioPath}` });
+    }
+  }
+
+  checks.push(
+    referenceText
+      ? { name: "reference-text", ok: true, message: "Reference text is set" }
+      : { name: "reference-text", ok: false, message: "Set reference text that matches the WAV before using Local Thai TTS" }
+  );
+
+  return {
+    ready: checks.every((check) => check.ok),
+    checks
+  };
+}
+
+async function runPythonVersionCheck(pythonPath: string, timeoutMs: number) {
+  const result = await runProcess({
+    command: pythonPath,
+    args: ["--version"],
+    timeoutMs,
+    timeoutMessage: "Python version check timed out",
+    fallbackMessage: "Python is not available from the configured path"
+  });
+
+  return (result.stdout || result.stderr).trim() || "version unknown";
+}
+
+async function runPythonDependencyCheck(pythonPath: string, timeoutMs: number) {
+  const code = [
+    "import importlib.util, sys",
+    "mods = ['torch', 'soundfile', 'flowtts']",
+    "missing = [m for m in mods if importlib.util.find_spec(m) is None]",
+    "if missing:",
+    "    print('Missing Python modules: ' + ', '.join(missing), file=sys.stderr)",
+    "    sys.exit(2)",
+    "print(sys.version.split()[0])"
+  ].join("\n");
+  const result = await runProcess({
+    command: pythonPath,
+    args: ["-c", code],
+    timeoutMs,
+    timeoutMessage: "Python dependency check timed out",
+    fallbackMessage: "Python is not available from the configured path"
+  });
+
+  return result.stdout.trim();
+}
+
 function runLocalThaiTts(input: {
   pythonPath: string;
   scriptPath: string;
@@ -473,9 +587,11 @@ function runLocalThaiTts(input: {
   referenceText: string;
   speed: number;
   outputPath: string;
+  timeoutMs: number;
 }) {
-  return new Promise<void>((resolve, reject) => {
-    const child = spawn(input.pythonPath, [
+  return runProcess({
+    command: input.pythonPath,
+    args: [
       input.scriptPath,
       "--engine",
       input.engine,
@@ -489,22 +605,64 @@ function runLocalThaiTts(input: {
       String(input.speed),
       "--output",
       input.outputPath
-    ], {
-      windowsHide: true
-    });
+    ],
+    timeoutMs: input.timeoutMs,
+    timeoutMessage: `Local Thai TTS timed out after ${Math.round(input.timeoutMs / 1000)} seconds`,
+    fallbackMessage: "Local Thai TTS failed"
+  }).then(() => undefined);
+}
 
+function runProcess(input: {
+  command: string;
+  args: string[];
+  timeoutMs: number;
+  timeoutMessage: string;
+  fallbackMessage: string;
+}) {
+  return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+    const child = spawn(input.command, input.args, { windowsHide: true });
+
+    let stdout = "";
     let stderr = "";
-    child.stderr.on("data", (chunk) => {
-      stderr += String(chunk);
-    });
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (code === 0) {
-        resolve();
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) {
         return;
       }
 
-      reject(new Error(stderr.trim() || `Local Thai TTS failed with exit code ${code}`));
+      settled = true;
+      child.kill();
+      reject(new Error(input.timeoutMessage));
+    }, input.timeoutMs);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on("error", (error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeout);
+      reject(new Error(`${input.fallbackMessage}: ${error.message}`));
+    });
+    child.on("close", (code) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      clearTimeout(timeout);
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+
+      reject(new Error(stderr.trim() || `${input.fallbackMessage} with exit code ${code}`));
     });
   });
 }
