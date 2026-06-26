@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppStore } from "../stores/appStore";
-import { cleanTtsText } from "../utils/helpers";
+import { cleanTtsText, splitTtsTextByLanguage } from "../utils/helpers";
 import { findBestVoiceForLanguage } from "../utils/speechVoices";
 import { synthesizeTts } from "../services/api";
 
@@ -92,37 +92,55 @@ export function useSpeechQueue() {
         return;
       }
 
-      const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = config.tts.lang;
-      utterance.rate = config.tts.rate;
-      utterance.pitch = config.tts.pitch;
-      utterance.volume = config.tts.volume;
-      utterance.voice = voices.find((voice) => voice.name === config.tts.voiceName) ?? findBestVoiceForLanguage(voices, config.tts.lang) ?? null;
+      const defaultVoice = voices.find((voice) => voice.name === config.tts.voiceName) ?? findBestVoiceForLanguage(voices, config.tts.lang) ?? null;
+      const englishVoice = findBestVoiceForLanguage(voices, "en-US") ?? findBestVoiceForLanguage(voices, "en") ?? defaultVoice;
+      const segments = splitTtsTextByLanguage(cleanText, config.tts.lang);
       speakingRef.current = true;
       setTtsError("");
       setError("");
       setCurrentSpeakingText(cleanText);
 
-      utterance.onend = () => {
+      const done = () => {
         speakingRef.current = false;
         setCurrentSpeakingText("");
         onDone?.();
       };
 
-      utterance.onerror = () => {
+      const fail = () => {
         const message = "Browser TTS could not play this test.";
         setTtsError(message);
         setError(message);
-        speakingRef.current = false;
-        setCurrentSpeakingText("");
-        onDone?.();
+        done();
       };
 
       window.speechSynthesis.cancel();
       if (window.speechSynthesis.paused) {
         window.speechSynthesis.resume();
       }
-      window.speechSynthesis.speak(utterance);
+
+      let segmentIndex = 0;
+      const speakNextSegment = () => {
+        const segment = segments[segmentIndex];
+        if (!segment) {
+          done();
+          return;
+        }
+
+        const utterance = new SpeechSynthesisUtterance(segment.text);
+        utterance.lang = segment.lang;
+        utterance.rate = config.tts.rate;
+        utterance.pitch = config.tts.pitch;
+        utterance.volume = config.tts.volume;
+        utterance.voice = segment.lang === "en-US" ? englishVoice : defaultVoice;
+        utterance.onend = () => {
+          segmentIndex += 1;
+          speakNextSegment();
+        };
+        utterance.onerror = fail;
+        window.speechSynthesis.speak(utterance);
+      };
+
+      speakNextSegment();
     },
     [config.tts.engine, config.tts.lang, config.tts.muted, config.tts.pitch, config.tts.rate, config.tts.voiceName, config.tts.volume, setCurrentSpeakingText, setError, voices]
   );

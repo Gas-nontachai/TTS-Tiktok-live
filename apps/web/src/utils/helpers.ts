@@ -18,11 +18,91 @@ export function renderTemplate(template: string, event: Partial<AlertEvent | Cha
 }
 
 export function cleanTtsText(text: string) {
-  return text
-    .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Modifier_Base}\p{Emoji_Component}\uFE0F]/gu, "")
+  const withoutEmoji = text
+    .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\p{Emoji_Modifier}\p{Emoji_Modifier_Base}\uFE0F]/gu, "")
     .replace(/[\u200D\u20E3]/g, "")
     .replace(/\s+/g, " ")
     .trim();
+
+  return normalizeTtsText(withoutEmoji);
+}
+
+export function normalizeTtsText(text: string) {
+  return text
+    .replace(/(?<![\p{L}\p{N}.])5{3,}(?![\p{L}\p{N}.])/gu, (match) => Array.from(match, () => "ห้า").join(" "))
+    .replace(/([\u0E00-\u0E7F])([A-Za-z]{2,})/g, "$1 $2")
+    .replace(/([A-Za-z]{2,})([\u0E00-\u0E7F])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export type TtsTextSegment = {
+  text: string;
+  lang: string;
+};
+
+export function splitTtsTextByLanguage(text: string, defaultLang: string): TtsTextSegment[] {
+  const segments: TtsTextSegment[] = [];
+  const englishPhrasePattern = /[A-Za-z]+(?:[ \t]+[A-Za-z]+)*/g;
+  let cursor = 0;
+
+  for (const match of text.matchAll(englishPhrasePattern)) {
+    const index = match.index ?? 0;
+    if (index > cursor) {
+      pushTtsSegment(segments, text.slice(cursor, index), defaultLang);
+    }
+    pushTtsSegment(segments, match[0], "en-US");
+    cursor = index + match[0].length;
+  }
+
+  if (cursor < text.length) {
+    pushTtsSegment(segments, text.slice(cursor), defaultLang);
+  }
+
+  return segments.filter((segment) => segment.text.trim());
+}
+
+function pushTtsSegment(segments: TtsTextSegment[], text: string, lang: string) {
+  if (!text) {
+    return;
+  }
+
+  const previous = segments.at(-1);
+  if (previous?.lang === lang) {
+    previous.text += text;
+    return;
+  }
+
+  segments.push({ text, lang });
+}
+
+export function eventSemanticKey(event: OverlayEvent) {
+  if (event.type !== "gift") {
+    return event.id;
+  }
+
+  return [
+    "gift",
+    event.userId || event.username,
+    event.giftId || event.giftName,
+    event.giftCount,
+    event.repeatEnd === undefined ? "unknown" : String(event.repeatEnd)
+  ].join(":").toLowerCase();
+}
+
+export function claimRecentKey(recent: Record<string, number>, key: string, ttlMs: number, now = Date.now()) {
+  for (const [candidate, expiresAt] of Object.entries(recent)) {
+    if (expiresAt <= now) {
+      delete recent[candidate];
+    }
+  }
+
+  if (recent[key] && recent[key] > now) {
+    return false;
+  }
+
+  recent[key] = now + ttlMs;
+  return true;
 }
 
 export function soundPresetFor(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]): SoundPreset {

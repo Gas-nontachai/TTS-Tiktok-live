@@ -6,7 +6,7 @@
     "share": {
       "enabled": true,
       "playSound": true,
-      "ttsEnabled": false,
+      "ttsEnabled": true,
       "template": "{username} แชร์ไลฟ์แล้ว ขอบคุณมากครับ",
       "durationMs": 4000,
       "cooldownMs": 5000,

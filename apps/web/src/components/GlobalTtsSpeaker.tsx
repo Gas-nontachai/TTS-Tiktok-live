@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
 import { useAppStore } from "../stores/appStore";
 import type { AlertEvent } from "../types";
-import { filterChat, isAlertEvent, renderTemplate } from "../utils/helpers";
+import { claimRecentKey, eventSemanticKey, filterChat, isAlertEvent, renderTemplate } from "../utils/helpers";
 
 const speakerId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const speakerLockKey = "tiktok-live-suite:tts-speaker";
 const spokenEventPrefix = "tiktok-live-suite:tts-spoken:";
 const speakerLockTtlMs = 4000;
 const spokenEventTtlMs = 30000;
+const semanticEventTtlMs = 30000;
 
 type TtsWorkItem = {
   id: string;
@@ -22,9 +23,11 @@ export function GlobalTtsSpeaker() {
   const config = useAppStore((state) => state.config);
   const events = useAppStore((state) => state.overlayEvents);
   const chatMessages = useAppStore((state) => state.chatMessages);
+  const status = useAppStore((state) => state.status.status);
   const [queue, setQueue] = useState<TtsWorkItem[]>([]);
   const seenAlertsRef = useRef(new Set<string>());
   const seenChatRef = useRef(new Set<string>());
+  const recentAlertKeysRef = useRef<Record<string, number>>({});
   const processingRef = useRef(false);
   const duplicatesRef = useRef<Record<string, number>>({});
   const isSpeakerRef = useRef(false);
@@ -61,8 +64,12 @@ export function GlobalTtsSpeaker() {
       return;
     }
     seenAlertsRef.current.add(latest.id);
+    const eventKey = eventSemanticKey(latest);
+    if (!claimRecentKey(recentAlertKeysRef.current, eventKey, semanticEventTtlMs)) {
+      return;
+    }
 
-    if (!isSpeakerRef.current || !enabled || !config.tts.speakAlerts || !claimSpokenEvent(latest.id)) {
+    if (!isSpeakerRef.current || !enabled || !config.tts.speakAlerts || !claimSpokenEvent(eventKey)) {
       return;
     }
 
@@ -113,6 +120,16 @@ export function GlobalTtsSpeaker() {
       timestamp: Date.now()
     });
   }, [chatMessages, config, enabled, stopSpeaking]);
+
+  useEffect(() => {
+    if (status !== "disconnected" || !config.alertQueue.clearQueueOnDisconnect) {
+      return;
+    }
+
+    setQueue([]);
+    processingRef.current = false;
+    stopSpeaking();
+  }, [config.alertQueue.clearQueueOnDisconnect, status, stopSpeaking]);
 
   useEffect(() => {
     const stop = () => {

@@ -17,6 +17,8 @@ type StatusHandler = (status: TikTokStatus) => void;
 type ErrorHandler = (message: string) => void;
 type LogHandler = (entry: LogEntry) => void;
 
+const giftDuplicateTtlMs = 30000;
+
 interface TikTokConnectionLike {
   connect: () => Promise<{ roomId?: string | number }>;
   disconnect: () => void | Promise<void>;
@@ -25,6 +27,7 @@ interface TikTokConnectionLike {
 
 export class TikTokLiveService {
   private connection?: TikTokConnectionLike;
+  private recentGiftKeys: Record<string, number> = {};
   private status: TikTokStatus = {
     status: "disconnected",
     username: "",
@@ -58,22 +61,38 @@ export class TikTokLiveService {
       fetchRoomInfoOnConnect: true
     }) as unknown as TikTokConnectionLike;
     this.connection = connection;
+    this.recentGiftKeys = {};
+
+    const isActiveConnection = () => this.connection === connection;
+    const emitIfActive = (type: string, mapper: (data: unknown) => OverlayEvent) => (data: unknown) => {
+      if (!isActiveConnection()) {
+        return;
+      }
+      this.emitMapped(type, mapper(data), data);
+    };
 
     connection.on(WebcastEvent.CHAT, (data) => {
+      if (!isActiveConnection()) {
+        return;
+      }
       this.log("info", "raw_chat", "Raw chat event received", data);
       const event = this.mapChat(data);
       this.log("info", "normalized_chat", `${event.displayName || event.username}: ${event.message}`, event);
       this.onChat(event);
     });
 
-    connection.on(WebcastEvent.SHARE, (data) => this.emitMapped("share", this.mapShare(data), data));
-    connection.on(WebcastEvent.FOLLOW, (data) => this.emitMapped("follow", this.mapFollow(data), data));
-    connection.on(WebcastEvent.GIFT, (data) => this.emitMapped("gift", this.mapGift(data), data));
-    connection.on(WebcastEvent.ROOM_USER, (data) => this.emitMapped("viewer_count", this.mapViewerCount(data), data));
-    connection.on(WebcastEvent.MEMBER, (data) => this.emitMapped("viewer_count", this.mapMemberCount(data), data));
-    connection.on(WebcastEvent.LIKE, (data) => this.emitMapped("like", this.mapLike(data), data));
+    connection.on(WebcastEvent.SHARE, emitIfActive("share", (data) => this.mapShare(data)));
+    connection.on(WebcastEvent.FOLLOW, emitIfActive("follow", (data) => this.mapFollow(data)));
+    connection.on(WebcastEvent.GIFT, emitIfActive("gift", (data) => this.mapGift(data)));
+    connection.on(WebcastEvent.ROOM_USER, emitIfActive("viewer_count", (data) => this.mapViewerCount(data)));
+    connection.on(WebcastEvent.MEMBER, emitIfActive("viewer_count", (data) => this.mapMemberCount(data)));
+    connection.on(WebcastEvent.LIKE, emitIfActive("like", (data) => this.mapLike(data)));
 
     connection.on("disconnected", () => {
+      if (!isActiveConnection()) {
+        return;
+      }
+      this.connection = undefined;
       this.setStatus({
         status: "disconnected",
         username: this.status.username,
@@ -82,6 +101,10 @@ export class TikTokLiveService {
     });
 
     connection.on(WebcastEvent.STREAM_END, () => {
+      if (!isActiveConnection()) {
+        return;
+      }
+      this.connection = undefined;
       this.setStatus({
         status: "disconnected",
         username: this.status.username,
@@ -90,6 +113,9 @@ export class TikTokLiveService {
     });
 
     connection.on("error", (data) => {
+      if (!isActiveConnection()) {
+        return;
+      }
       const message = this.getErrorMessage(data);
       this.log("error", "error", message, data);
       this.onError(message);
@@ -113,9 +139,11 @@ export class TikTokLiveService {
 
   async disconnect(announce = true) {
     if (this.connection) {
-      await this.connection.disconnect();
+      const connection = this.connection;
       this.connection = undefined;
+      await connection.disconnect();
     }
+    this.recentGiftKeys = {};
 
     this.setStatus({ status: "disconnected", username: this.status.username, roomId: "" }, announce);
     if (announce) {
@@ -125,8 +153,39 @@ export class TikTokLiveService {
 
   private emitMapped(type: string, event: OverlayEvent, raw: unknown) {
     this.log("info", "raw_event", `Raw ${type} event received`, raw);
+    if (event.type === "gift" && !this.claimGiftEvent(event)) {
+      this.log("info", "normalized_event", "Skipped duplicate gift event", event);
+      return;
+    }
+
     this.log("info", "normalized_event", `Normalized ${type} event`, event);
     this.onEvent(event);
+  }
+
+  private claimGiftEvent(event: GiftAlertEvent) {
+    const now = Date.now();
+    for (const [key, expiresAt] of Object.entries(this.recentGiftKeys)) {
+      if (expiresAt <= now) {
+        delete this.recentGiftKeys[key];
+      }
+    }
+
+    const key = this.giftEventKey(event);
+    if (this.recentGiftKeys[key] && this.recentGiftKeys[key] > now) {
+      return false;
+    }
+
+    this.recentGiftKeys[key] = now + giftDuplicateTtlMs;
+    return true;
+  }
+
+  private giftEventKey(event: GiftAlertEvent) {
+    return [
+      event.userId || event.username,
+      event.giftId || event.giftName,
+      event.giftCount,
+      event.repeatEnd === undefined ? "unknown" : String(event.repeatEnd)
+    ].join(":").toLowerCase();
   }
 
   private setStatus(status: TikTokStatus, announce = true) {

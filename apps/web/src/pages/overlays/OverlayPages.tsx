@@ -6,17 +6,21 @@ import { Button, CopyRow, Metric } from "../../components/ui";
 import { Avatar } from "../../components";
 import type { AlertEvent, ChatMessageEvent } from "../../types";
 import { ttsPlayerUrl } from "../../config/constants";
-import { alertVolumeFor, chatBoxStyle, enqueueAlert, filterChat, isAlertEvent, playTone, renderTemplate, soundPresetFor, trimMessages, typeLabel } from "../../utils/helpers";
+import { alertVolumeFor, chatBoxStyle, claimRecentKey, enqueueAlert, eventSemanticKey, filterChat, isAlertEvent, playTone, renderTemplate, soundPresetFor, trimMessages, typeLabel } from "../../utils/helpers";
+
+const semanticEventTtlMs = 30000;
 
 export function MainOverlay() {
   const config = useAppStore((state) => state.config);
   const events = useAppStore((state) => state.overlayEvents);
+  const status = useAppStore((state) => state.status.status);
   const stats = useAppStore((state) => state.stats);
   const chatMessages = useAppStore((state) => state.chatMessages);
   const [queue, setQueue] = useState<AlertEvent[]>([]);
   const [current, setCurrent] = useState<AlertEvent | null>(null);
   const [hearts, setHearts] = useState<{ id: string; x: number; y: number }[]>([]);
   const seenRef = useRef(new Set<string>());
+  const recentAlertKeysRef = useRef<Record<string, number>>({});
   const cooldownRef = useRef<Record<string, number>>({});
   const timeoutRef = useRef<number | null>(null);
 
@@ -36,6 +40,10 @@ export function MainOverlay() {
     }
 
     if ((latest.type === "share" || latest.type === "follow" || latest.type === "gift") && config.overlay.showAlerts) {
+      if (!claimRecentKey(recentAlertKeysRef.current, eventSemanticKey(latest), semanticEventTtlMs)) {
+        return;
+      }
+
       const alertConfig = config.alerts[latest.type];
       const now = Date.now();
       if (!alertConfig.enabled || now < (cooldownRef.current[latest.type] || 0)) {
@@ -53,6 +61,19 @@ export function MainOverlay() {
       setQueue((items) => enqueueAlert(items, latest, config.alertQueue.maxQueueSize, config.alertQueue.allowGiftInterrupt));
     }
   }, [config, events]);
+
+  useEffect(() => {
+    if (status !== "disconnected" || !config.alertQueue.clearQueueOnDisconnect) {
+      return;
+    }
+
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setQueue([]);
+    setCurrent(null);
+  }, [config.alertQueue.clearQueueOnDisconnect, status]);
 
   useEffect(() => {
     if (current || queue.length === 0) {
@@ -141,9 +162,11 @@ export function AlertsOverlay() {
 function AlertsLayer() {
   const config = useAppStore((state) => state.config);
   const events = useAppStore((state) => state.overlayEvents);
+  const status = useAppStore((state) => state.status.status);
   const [queue, setQueue] = useState<AlertEvent[]>([]);
   const [current, setCurrent] = useState<AlertEvent | null>(null);
   const seenRef = useRef(new Set<string>());
+  const recentAlertKeysRef = useRef<Record<string, number>>({});
   const cooldownRef = useRef<Record<string, number>>({});
   const timeoutRef = useRef<number | null>(null);
 
@@ -155,6 +178,9 @@ function AlertsLayer() {
     seenRef.current.add(latest.id);
 
     if (!config.overlay.showAlerts) {
+      return;
+    }
+    if (!claimRecentKey(recentAlertKeysRef.current, eventSemanticKey(latest), semanticEventTtlMs)) {
       return;
     }
 
@@ -176,6 +202,19 @@ function AlertsLayer() {
     cooldownRef.current[latest.type] = now + alertConfig.cooldownMs;
     setQueue((items) => enqueueAlert(items, latest, config.alertQueue.maxQueueSize, config.alertQueue.allowGiftInterrupt));
   }, [config, events]);
+
+  useEffect(() => {
+    if (status !== "disconnected" || !config.alertQueue.clearQueueOnDisconnect) {
+      return;
+    }
+
+    if (timeoutRef.current) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+    setQueue([]);
+    setCurrent(null);
+  }, [config.alertQueue.clearQueueOnDisconnect, status]);
 
   useEffect(() => {
     if (current || queue.length === 0 || !config.overlay.showAlerts) {
