@@ -4,7 +4,7 @@ import { useAppStore } from "../stores/appStore";
 import { Button, CopyRow, Toggle, TextInput, SelectInput, RangeInput, NumberInput } from "../components/ui";
 import { checkLocalThaiTts, saveConfig } from "../services/api";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
-import { languages, ttsPlayerUrl } from "../config/constants";
+import { buttonRowClass, languages, panelClass, ttsPlayerUrl } from "../config/constants";
 import { findBestVoiceForLanguage, voiceMatchesLanguage } from "../utils/speechVoices";
 import type { LocalThaiTtsPreflight } from "../types";
 
@@ -63,8 +63,8 @@ export function TtsPage() {
   };
 
   return (
-    <div className="page-grid two">
-      <section className="panel">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <section className={panelClass}>
         <h2>TTS Controls</h2>
         <CopyRow label="TTS Player URL" value={ttsPlayerUrl} />
         <Toggle label="Enable TTS Player" checked={config.tts.playerEnabled} onChange={(playerEnabled) => patchConfig({ tts: { playerEnabled } })} />
@@ -78,14 +78,14 @@ export function TtsPage() {
         <NumberInput label="Max queue size" value={config.tts.maxQueueSize} onChange={(maxQueueSize) => patchConfig({ tts: { maxQueueSize } })} />
         <NumberInput label="Cooldown ms" value={config.tts.cooldownMs} onChange={(cooldownMs) => patchConfig({ tts: { cooldownMs } })} />
         <TextInput label="Test text" value={text} onChange={setText} />
-        <div className="button-row">
+        <div className={buttonRowClass}>
           <Button onClick={() => testSpeak(text)}><Play size={16} />Test TTS</Button>
           <Button variant="secondary" onClick={stopAllTts}><Pause size={16} />Skip Current TTS</Button>
         </div>
-        {ttsError ? <p className="error-banner">{ttsError}</p> : null}
-        <p className="speaking-text">{currentSpeakingText || "Idle"}</p>
+        {ttsError ? <p className="rounded-md border border-danger bg-white px-3 py-2 text-sm font-semibold text-danger">{ttsError}</p> : null}
+        <p className="rounded-md border border-surfaceMuted bg-white px-3 py-2 text-sm text-textMuted [overflow-wrap:anywhere]">{currentSpeakingText || "Idle"}</p>
       </section>
-      <section className="panel">
+      <section className={panelClass}>
         <h2>{config.tts.engine === "local-thai" ? "Local Thai Model" : "Browser Voice"}</h2>
         {config.tts.engine === "local-thai" ? (
           <>
@@ -95,7 +95,7 @@ export function TtsPage() {
             <TextInput label="Reference text" value={config.tts.localThaiReferenceText} onChange={(localThaiReferenceText) => patchConfig({ tts: { localThaiReferenceText } })} />
             <Button variant="secondary" onClick={() => void checkLocalThai()} disabled={checkingLocalThai}><Activity size={16} />{checkingLocalThai ? "Checking..." : "Check Local Thai TTS"}</Button>
             {preflight ? (
-              <div className={preflight.ready ? "preflight-status ready" : "preflight-status not-ready"}>
+              <div className={preflight.ready ? "rounded-md border border-[#b9d7b0] bg-[#f1faed] p-3 text-sm text-[#31582c]" : "rounded-md border border-[#f0c7a8] bg-[#fff4ec] p-3 text-sm text-[#8a3f12]"}>
                 <strong>{preflight.ready ? "Local Thai TTS ready" : "Local Thai TTS needs setup"}</strong>
                 {preflight.checks.map((check) => (
                   <p key={check.name}>{check.ok ? "OK" : "Fix"}: {check.message}</p>

@@ -1,10 +1,9 @@
 import { AppShell } from "../components/layout/AppShell";
 import { AlertsPage } from "../pages/Alerts";
 import { ChatPage } from "../pages/Chat";
-import { ChatFilterPage } from "../pages/ChatFilter";
-import { ChatModerationPage } from "../pages/ChatModeration";
 import { ConnectionPage } from "../pages/Connection";
 import { DashboardPage } from "../pages/Dashboard";
+import { GoalsPage } from "../pages/Goals";
 import { LogsPage } from "../pages/Logs";
 import { OverlayConfigPage } from "../pages/OverlayConfig";
 import { SettingsPage } from "../pages/Settings";
@@ -13,6 +12,7 @@ import { TtsPage } from "../pages/Tts";
 import {
   AlertsOverlay,
   ChatOverlay,
+  GoalsOverlay,
   HeartsOverlay,
   MainOverlay,
   TtsOverlay,
@@ -24,9 +24,8 @@ export const knownRoutes = new Set([
   "/dashboard",
   "/connection",
   "/alerts",
+  "/goals",
   "/chat",
-  "/chat/filter",
-  "/chat/moderation",
   "/overlay",
   "/tts",
   "/sounds",
@@ -37,6 +36,7 @@ export const knownRoutes = new Set([
 export const overlayRoutes = new Set([
   "/overlay/main",
   "/overlay/alerts",
+  "/overlay/goals",
   "/overlay/viewer-count",
   "/overlay/hearts",
   "/overlay/chat",
@@ -67,6 +67,7 @@ export function isConfigRoute(path: string) {
 export function AppRoutes({ path }: { path: string }) {
   if (path === "/overlay/main") return <MainOverlay />;
   if (path === "/overlay/alerts") return <AlertsOverlay />;
+  if (path === "/overlay/goals") return <GoalsOverlay />;
   if (path === "/overlay/viewer-count") return <ViewerCountOverlay />;
   if (path === "/overlay/hearts") return <HeartsOverlay />;
   if (path === "/overlay/chat") return <ChatOverlay />;
@@ -88,12 +89,10 @@ function renderPage(path: string) {
       return <ConnectionPage />;
     case "/alerts":
       return <AlertsPage />;
+    case "/goals":
+      return <GoalsPage />;
     case "/chat":
       return <ChatPage />;
-    case "/chat/filter":
-      return <ChatFilterPage />;
-    case "/chat/moderation":
-      return <ChatModerationPage />;
     case "/overlay":
       return <OverlayConfigPage />;
     case "/tts":

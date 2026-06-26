@@ -6,9 +6,11 @@ This folder contains reusable React UI components for the web app.
 
 - Use PascalCase for file names and component exports.
 - Keep small presentational components in `src/components/ui/`.
-- Use Tailwind CSS utilities only, no additional `.css` files for styling.
+- Prefer shadcn/ui-style primitives for new shared UI before adding one-off local components.
+- Use Tailwind CSS utilities for styling; keep extra CSS limited to global tokens or layout shells shared by multiple pages.
 - Export shared UI primitives from `src/components/ui/index.ts`.
 - Shared theme colors should come from Tailwind theme tokens where possible.
+- Project-specific wrappers can live beside shadcn primitives when they preserve an existing API, such as `TextInput`, `NumberInput`, `Toggle`, and `CopyRow`.
 
 ## Recommended component APIs
 
@@ -20,7 +22,7 @@ This folder contains reusable React UI components for the web app.
 
 ## Theme palette
 
-Prefer the project's muted sage theme:
+Prefer the project's muted sage theme when styling or adapting shadcn primitives:
 
 - `bg-sage`, `text-white`
 - `bg-sage-soft`, `text-text`

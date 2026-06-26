@@ -1,12 +1,16 @@
 export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
-export type AlertType = "share" | "follow" | "gift";
-export type OverlayEventType = AlertType | "viewer_count" | "like" | "chat_message" | "system";
+export type AlertType = "like" | "comment" | "follow" | "share" | "gift" | "goal";
+export type OverlayEventType = AlertType | "viewer_count" | "chat_message" | "system";
 export type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type AlertAnimationPreset = "fade" | "slide-up" | "slide-left" | "pop" | "bounce" | "zoom" | "flip" | "glow-pulse";
 export type ChatAnimationPreset = "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "pop" | "stack-pop" | "soft-drop";
 export type HeartAnimationPreset = "float-up" | "burst" | "spiral" | "side-float" | "confetti";
 export type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
 export type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
+export type AlertMediaType = "image" | "gif" | "webp";
+export type AlertMediaPosition = "top" | "bottom" | "left" | "right";
+export type GoalType = "like" | "follow" | "gift" | "coin" | "share" | "custom";
+export type GoalResetMode = "session" | "manual" | "persistent";
 
 export interface TikTokStatus {
   status: ConnectionStatus;
@@ -49,12 +53,23 @@ export interface ViewerCountEvent extends BaseOverlayEvent {
   viewerCount: number;
 }
 
-export interface LikeEvent extends BaseOverlayEvent {
+export interface LikeEvent extends BaseOverlayEvent, Partial<UserEventFields> {
   type: "like";
-  userId?: string;
-  username?: string;
   likeCount?: number;
   totalLikeCount?: number;
+}
+
+export interface CommentAlertEvent extends BaseOverlayEvent, UserEventFields {
+  type: "comment";
+  message: string;
+}
+
+export interface GoalAlertEvent extends BaseOverlayEvent {
+  type: "goal";
+  goalId: string;
+  goalTitle: string;
+  currentValue: number;
+  targetValue: number;
 }
 
 export interface ChatMessageEvent extends BaseOverlayEvent, UserEventFields {
@@ -71,7 +86,7 @@ export interface SystemEvent extends BaseOverlayEvent {
   message?: string;
 }
 
-export type AlertEvent = ShareAlertEvent | FollowAlertEvent | GiftAlertEvent;
+export type AlertEvent = ShareAlertEvent | FollowAlertEvent | GiftAlertEvent | LikeEvent | CommentAlertEvent | GoalAlertEvent;
 export type OverlayEvent = AlertEvent | ViewerCountEvent | LikeEvent | ChatMessageEvent | SystemEvent;
 
 export type LogLevel = "info" | "warn" | "error";
@@ -112,6 +127,11 @@ export interface AlertConfig {
   playSound: boolean;
   ttsEnabled: boolean;
   template: string;
+  soundUrl: string;
+  mediaUrl: string;
+  mediaType: AlertMediaType;
+  mediaSize: number;
+  mediaPosition: AlertMediaPosition;
   durationMs: number;
   cooldownMs: number;
   volume: number;
@@ -119,6 +139,10 @@ export interface AlertConfig {
   exitAnimation: AlertAnimationPreset;
   animationDurationMs: number;
   stylePreset: "glass" | "neon" | "solid" | "minimal";
+  rateLimitPerSecond: number;
+  batchEnabled: boolean;
+  batchWindowMs: number;
+  minimumTriggerCount: number;
 }
 
 export interface GiftAlertConfig extends AlertConfig {
@@ -197,9 +221,12 @@ export interface AppConfig {
     username: string;
   };
   alerts: {
+    like: AlertConfig;
+    comment: AlertConfig;
     share: AlertConfig;
     follow: AlertConfig;
     gift: GiftAlertConfig;
+    goal: AlertConfig;
   };
   alertQueue: {
     maxQueueSize: number;
@@ -219,7 +246,7 @@ export interface AppConfig {
     maxHeartsOnScreen: number;
     heartSize: number;
     animationDurationMs: number;
-    spawnPosition: "bottom-right" | "bottom-left" | "random";
+    spawnPosition: Position;
     intensity: "low" | "normal" | "high";
     animationPreset: HeartAnimationPreset;
   };
@@ -259,11 +286,28 @@ export interface AppConfig {
     showAlerts: boolean;
     showViewerCount: boolean;
     showHearts: boolean;
+    showGoals: boolean;
     showChatInMain: boolean;
     alertPosition: Position;
   };
+  goals: GoalConfig[];
   chat: ChatConfig;
 }
+
+export interface GoalConfig {
+  id: string;
+  title: string;
+  type: GoalType;
+  currentValue: number;
+  targetValue: number;
+  enabled: boolean;
+  isPaused: boolean;
+  resetMode: GoalResetMode;
+  triggerAlertOnComplete: boolean;
+  completed: boolean;
+}
+
+export type GoalState = GoalConfig;
 
 export interface AppStats {
   viewerCount: number;
@@ -279,6 +323,7 @@ export type ChatControlAction = "clear" | "pause" | "resume";
 export type WsEvent =
   | { type: "config_updated"; payload: AppConfig }
   | { type: "overlay_event"; payload: OverlayEvent }
+  | { type: "goal_updated"; payload: GoalState[] }
   | { type: "chat_message"; payload: ChatMessageEvent }
   | { type: "chat_control"; payload: { action: ChatControlAction } }
   | { type: "chat_config_updated"; payload: ChatConfig }

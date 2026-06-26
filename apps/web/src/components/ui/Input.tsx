@@ -1,3 +1,6 @@
+import * as React from "react";
+import { cn } from "../../lib/utils";
+
 type FormFieldProps = {
   label: string;
   children: React.ReactNode;
@@ -6,15 +9,29 @@ type FormFieldProps = {
 
 function FormField({ label, children, className = "" }: FormFieldProps) {
   return (
-    <label className={"grid gap-2 text-sm font-semibold text-slate-700 " + className}>
-      <span>{label}</span>
+    <label className={cn("grid min-w-0 content-start gap-2 text-sm font-semibold text-text", className)}>
+      <span className="min-h-5 leading-5">{label}</span>
       {children}
     </label>
   );
 }
 
 const inputClassName =
-  "w-full rounded-2xl border border-surfaceMuted bg-surface px-4 py-3 text-sm text-text shadow-sm outline-none transition focus:border-sage focus:ring-2 focus:ring-sage/20";
+  "h-10 w-full rounded-md border border-surfaceMuted bg-white px-3 py-2 text-sm text-text shadow-sm outline-none transition placeholder:text-textMuted focus:border-sage focus:ring-2 focus:ring-sage/20 disabled:cursor-not-allowed disabled:opacity-50";
+
+const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
+  ({ className, ...props }, ref) => (
+    <input ref={ref} className={cn(inputClassName, className)} {...props} />
+  )
+);
+Input.displayName = "Input";
+
+const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+  ({ className, ...props }, ref) => (
+    <textarea ref={ref} className={cn(inputClassName, "min-h-[8rem] resize-y", className)} {...props} />
+  )
+);
+Textarea.displayName = "Textarea";
 
 export function TextInput({
   label,
@@ -31,11 +48,10 @@ export function TextInput({
 }) {
   return (
     <FormField label={label} className={className}>
-      <input
+      <Input
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={inputClassName}
       />
     </FormField>
   );
@@ -54,11 +70,10 @@ export function TextArea({
 }) {
   return (
     <FormField label={label} className={className}>
-      <textarea
+      <Textarea
         rows={6}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className={inputClassName + " min-h-[10rem] resize-y"}
       />
     </FormField>
   );
@@ -79,12 +94,11 @@ export function NumberInput({
 }) {
   return (
     <FormField label={label} className={className}>
-      <input
+      <Input
         type="number"
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
-        className={inputClassName}
       />
     </FormField>
   );
@@ -127,7 +141,9 @@ export function RangeInput({
   step = 1,
   min = 0,
   max = 100,
-  className = ""
+  className = "",
+  showNumberInput = true,
+  valueLabel
 }: {
   label: string;
   value: number;
@@ -136,10 +152,12 @@ export function RangeInput({
   min?: number;
   max?: number;
   className?: string;
+  showNumberInput?: boolean;
+  valueLabel?: string;
 }) {
   return (
     <FormField label={label} className={className}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      <div className="grid min-h-10 grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto]">
         <input
           type="range"
           min={min}
@@ -149,14 +167,22 @@ export function RangeInput({
           onChange={(event) => onChange(Number(event.target.value))}
           className="h-2 w-full cursor-pointer appearance-none rounded-full bg-surfaceMuted accent-sage"
         />
-        <input
-          type="number"
-          step={step}
-          value={value}
-          onChange={(event) => onChange(Number(event.target.value))}
-          className={inputClassName + " w-full max-w-[6rem]"}
-        />
+        {showNumberInput ? (
+          <Input
+            type="number"
+            step={step}
+            value={value}
+            onChange={(event) => onChange(Number(event.target.value))}
+            className="w-full min-w-[6rem] max-w-[6rem]"
+          />
+        ) : (
+          <span className="inline-flex min-h-9 min-w-[4.25rem] items-center justify-center rounded-md border border-surfaceMuted bg-white px-2.5 text-sm font-bold text-text">
+            {valueLabel ?? value}
+          </span>
+        )}
       </div>
     </FormField>
   );
 }
+
+export { Input, Textarea };

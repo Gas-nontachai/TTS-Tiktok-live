@@ -1,7 +1,7 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
 import { constants as fsConstants } from "node:fs";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import cors from "cors";
@@ -16,6 +16,8 @@ import type {
   ChatMessageEvent,
   FollowAlertEvent,
   GiftAlertEvent,
+  GoalAlertEvent,
+  GoalConfig,
   LogEntry,
   OverlayEvent,
   ShareAlertEvent
@@ -28,6 +30,8 @@ const server = http.createServer(app);
 const hub = new RealtimeHub();
 const logs: LogEntry[] = [];
 const recentChat: ChatMessageEvent[] = [];
+const uploadsDir = path.resolve(process.cwd(), "apps/server/data/uploads");
+const uploadsUrlPath = "/uploads";
 const localThaiTtsTimeoutMs = 180000;
 const localThaiPreflightTimeoutMs = 30000;
 const stats: AppStats = {
@@ -59,8 +63,19 @@ const ttsSynthesizeSchema = z.object({
   text: z.string().trim().min(1).max(1000)
 });
 
+const uploadSchema = z.object({
+  fileName: z.string().trim().min(1),
+  dataUrl: z.string().min(1)
+});
+
+const goalProgressSchema = z.object({
+  id: z.string().trim().min(1),
+  amount: z.number().min(0).default(1)
+});
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "25mb" }));
+app.use(uploadsUrlPath, express.static(uploadsDir));
 
 app.get("/api/health", (_req, res) => {
   res.json({ success: true, message: "OK" });
@@ -99,6 +114,16 @@ app.post("/api/config/reset", async (_req, res, next) => {
 
 app.get("/api/stats", (_req, res) => {
   res.json({ success: true, data: stats });
+});
+
+app.post("/api/uploads", async (req, res, next) => {
+  try {
+    const payload = uploadSchema.parse(req.body);
+    const saved = await saveUpload(payload.fileName, payload.dataUrl);
+    res.json({ success: true, data: saved });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get("/api/tts/local-thai/preflight", async (_req, res, next) => {
@@ -170,8 +195,9 @@ app.get("/api/logs", (_req, res) => {
 app.post("/api/tiktok/connect", async (req, res, next) => {
   try {
     const { username } = connectSchema.parse(req.body);
-    const config = await updateConfig({ tiktok: { username } });
+    const config = await resetSessionGoals(await updateConfig({ tiktok: { username } }));
     broadcastConfig(config);
+    hub.broadcast({ type: "goal_updated", payload: config.goals });
     const status = await tiktok.connect(username);
 
     res.json({
@@ -269,6 +295,60 @@ app.post("/api/test/like", (_req, res) => {
   };
   handleOverlayEvent(event);
   res.json({ success: true, data: { eventId: event.id } });
+});
+
+app.post("/api/test/comment", (_req, res) => {
+  const event: ChatMessageEvent = {
+    id: id("comment"),
+    type: "chat_message",
+    userId: "tester_comment",
+    username: "tester_comment",
+    displayName: "Tester Comment",
+    profilePictureUrl: "",
+    message: "This is a test chat message",
+    timestamp: Date.now()
+  };
+  handleChatMessage(event);
+  res.json({ success: true, data: { eventId: event.id } });
+});
+
+app.post("/api/test/goal", (_req, res) => {
+  const event: GoalAlertEvent = {
+    id: id("goal"),
+    type: "goal",
+    goalId: "test_goal",
+    goalTitle: "Test Goal",
+    currentValue: 100,
+    targetValue: 100,
+    timestamp: Date.now()
+  };
+  handleOverlayEvent(event);
+  res.json({ success: true, data: { eventId: event.id } });
+});
+
+app.post("/api/test/goal-progress", async (req, res, next) => {
+  try {
+    const payload = goalProgressSchema.parse(req.body);
+    const goals = await incrementGoal(payload.id, payload.amount);
+    res.json({ success: true, data: goals });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/goals/:id/reset", async (req, res, next) => {
+  try {
+    const config = await readConfig();
+    const goals = config.goals.map((goal) =>
+      goal.id === req.params.id ? { ...goal, currentValue: 0, completed: false, isPaused: false } : goal
+    );
+    const nextConfig = await updateConfig({ goals });
+    broadcastConfig(nextConfig);
+    hub.broadcast({ type: "goal_updated", payload: nextConfig.goals });
+    res.json({ success: true, data: nextConfig.goals });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.get("/api/chat/config", async (_req, res, next) => {
@@ -392,6 +472,7 @@ function handleOverlayEvent(event: OverlayEvent) {
 
   hub.broadcast({ type: "overlay_event", payload: event });
   hub.broadcast({ type: "stats", payload: stats });
+  void applyGoalProgress(event);
 }
 
 function handleChatMessage(event: ChatMessageEvent) {
@@ -416,6 +497,11 @@ function handleChatMessage(event: ChatMessageEvent) {
     }
   });
   hub.broadcast({ type: "stats", payload: stats });
+  handleOverlayEvent({
+    ...event,
+    id: id("comment"),
+    type: "comment"
+  });
 }
 
 function broadcastStatus(status: ReturnType<TikTokLiveService["getStatus"]>) {
@@ -482,6 +568,131 @@ function unique(values: string[]) {
 function countRecentChats() {
   const cutoff = Date.now() - 60000;
   return recentChat.filter((chat) => chat.timestamp >= cutoff).length;
+}
+
+async function saveUpload(fileName: string, dataUrl: string) {
+  const extension = path.extname(fileName).toLowerCase();
+  const audioExtensions = new Set([".mp3", ".wav", ".ogg"]);
+  const imageExtensions = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
+  if (!audioExtensions.has(extension) && !imageExtensions.has(extension)) {
+    throw new Error("Unsupported upload type");
+  }
+
+  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) {
+    throw new Error("Upload must be a base64 data URL");
+  }
+
+  const safeBase = path.basename(fileName, extension).replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "") || "upload";
+  const outputName = `${safeBase}_${Date.now()}${extension}`;
+  await mkdir(uploadsDir, { recursive: true });
+  await writeFile(path.join(uploadsDir, outputName), Buffer.from(match[2], "base64"));
+
+  return {
+    url: `${uploadsUrlPath}/${outputName}`,
+    mediaKind: audioExtensions.has(extension) ? "audio" : "image"
+  };
+}
+
+async function applyGoalProgress(event: OverlayEvent) {
+  if (event.type === "goal" || event.type === "viewer_count" || event.type === "system") {
+    return;
+  }
+
+  const amountByType = goalAmountForEvent(event);
+  if (!amountByType) {
+    return;
+  }
+
+  const config = await readConfig();
+  const goals = config.goals.map((goal) => advanceGoal(goal, amountByType));
+  if (JSON.stringify(goals) === JSON.stringify(config.goals)) {
+    return;
+  }
+
+  const nextConfig = await updateConfig({ goals });
+  broadcastConfig(nextConfig);
+  hub.broadcast({ type: "goal_updated", payload: nextConfig.goals });
+
+  nextConfig.goals
+    .filter((goal) => goal.completed && !config.goals.find((previous) => previous.id === goal.id)?.completed && goal.triggerAlertOnComplete)
+    .forEach((goal) => {
+      handleOverlayEvent({
+        id: id("goal"),
+        type: "goal",
+        goalId: goal.id,
+        goalTitle: goal.title,
+        currentValue: goal.currentValue,
+        targetValue: goal.targetValue,
+        timestamp: Date.now()
+      });
+    });
+}
+
+function goalAmountForEvent(event: OverlayEvent): Partial<Record<GoalConfig["type"], number>> {
+  if (event.type === "like") {
+    return { like: event.likeCount || 1 };
+  }
+  if (event.type === "follow") {
+    return { follow: 1 };
+  }
+  if (event.type === "share") {
+    return { share: 1 };
+  }
+  if (event.type === "gift") {
+    return { gift: event.giftCount || 1, coin: event.diamondCount || 0 };
+  }
+  return {};
+}
+
+function advanceGoal(goal: GoalConfig, amounts: Partial<Record<GoalConfig["type"], number>>) {
+  const amount = amounts[goal.type] ?? (goal.type === "custom" ? 0 : undefined);
+  if (!goal.enabled || goal.isPaused || goal.completed || !amount) {
+    return goal;
+  }
+
+  const currentValue = Math.min(goal.targetValue, goal.currentValue + amount);
+  return {
+    ...goal,
+    currentValue,
+    completed: currentValue >= goal.targetValue
+  };
+}
+
+async function incrementGoal(idValue: string, amount: number) {
+  const config = await readConfig();
+  const goals = config.goals.map((goal) =>
+    goal.id === idValue
+      ? {
+          ...goal,
+          currentValue: Math.min(goal.targetValue, goal.currentValue + amount),
+          completed: goal.currentValue + amount >= goal.targetValue
+        }
+      : goal
+  );
+  const nextConfig = await updateConfig({ goals });
+  broadcastConfig(nextConfig);
+  hub.broadcast({ type: "goal_updated", payload: nextConfig.goals });
+  return nextConfig.goals;
+}
+
+async function resetSessionGoals(config: AppConfig) {
+  const goals = config.goals.map((goal) =>
+    goal.resetMode === "session"
+      ? {
+          ...goal,
+          currentValue: 0,
+          completed: false,
+          isPaused: false
+        }
+      : goal
+  );
+
+  if (JSON.stringify(goals) === JSON.stringify(config.goals)) {
+    return config;
+  }
+
+  return updateConfig({ goals });
 }
 
 type LocalThaiTtsCheck = {

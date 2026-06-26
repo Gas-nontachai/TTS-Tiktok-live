@@ -1,40 +1,108 @@
 import { create } from "zustand";
-import type { AppConfig, AppStats, ChatMessageEvent, DeepPartial, LogEntry, OverlayEvent, TikTokStatus } from "../types";
+import { persist } from "zustand/middleware";
+import type { AppConfig, AppStats, ChatMessageEvent, DeepPartial, GoalState, LogEntry, OverlayEvent, TikTokStatus } from "../types";
 
 export const defaultConfig: AppConfig = {
   tiktok: { username: "" },
   alerts: {
+    like: {
+      enabled: true,
+      playSound: true,
+      ttsEnabled: false,
+      template: "{likeCount} likes from {displayName}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
+      durationMs: 2200,
+      cooldownMs: 0,
+      volume: 65,
+      enterAnimation: "bounce",
+      exitAnimation: "fade",
+      animationDurationMs: 300,
+      stylePreset: "neon",
+      rateLimitPerSecond: 6,
+      batchEnabled: true,
+      batchWindowMs: 650,
+      minimumTriggerCount: 1
+    },
+    comment: {
+      enabled: true,
+      playSound: true,
+      ttsEnabled: false,
+      template: "{displayName}: {message}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
+      durationMs: 3500,
+      cooldownMs: 500,
+      volume: 65,
+      enterAnimation: "slide-up",
+      exitAnimation: "fade",
+      animationDurationMs: 300,
+      stylePreset: "minimal",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
+    },
     share: {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
       template: "{username} แชร์ไลฟ์แล้ว ขอบคุณมากครับ",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
       durationMs: 4000,
       cooldownMs: 5000,
       volume: 80,
       enterAnimation: "slide-up",
       exitAnimation: "fade",
       animationDurationMs: 300,
-      stylePreset: "glass"
+      stylePreset: "glass",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
     },
     follow: {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
       template: "ขอบคุณ {username} ที่กดติดตามครับ",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
       durationMs: 5000,
       cooldownMs: 3000,
       volume: 80,
       enterAnimation: "pop",
       exitAnimation: "fade",
       animationDurationMs: 320,
-      stylePreset: "neon"
+      stylePreset: "neon",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
     },
     gift: {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
       template: "ขอบคุณ {username} สำหรับ {giftName} x{giftCount}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
       durationMs: 6000,
       cooldownMs: 0,
       volume: 90,
@@ -44,7 +112,33 @@ export const defaultConfig: AppConfig = {
       enterAnimation: "bounce",
       exitAnimation: "fade",
       animationDurationMs: 360,
-      stylePreset: "solid"
+      stylePreset: "solid",
+      rateLimitPerSecond: 8,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
+    },
+    goal: {
+      enabled: true,
+      playSound: true,
+      ttsEnabled: true,
+      template: "{goalTitle} complete: {currentValue}/{targetValue}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 120,
+      mediaPosition: "top",
+      durationMs: 7000,
+      cooldownMs: 0,
+      volume: 90,
+      enterAnimation: "bounce",
+      exitAnimation: "fade",
+      animationDurationMs: 360,
+      stylePreset: "solid",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
     }
   },
   alertQueue: {
@@ -105,9 +199,36 @@ export const defaultConfig: AppConfig = {
     showAlerts: true,
     showViewerCount: true,
     showHearts: true,
+    showGoals: true,
     showChatInMain: false,
     alertPosition: "top-right"
   },
+  goals: [
+    {
+      id: "session_likes",
+      title: "Road to 10,000 Likes",
+      type: "like",
+      currentValue: 0,
+      targetValue: 10000,
+      enabled: false,
+      isPaused: false,
+      resetMode: "session",
+      triggerAlertOnComplete: true,
+      completed: false
+    },
+    {
+      id: "session_followers",
+      title: "Road to 100 Followers",
+      type: "follow",
+      currentValue: 0,
+      targetValue: 100,
+      enabled: false,
+      isPaused: false,
+      resetMode: "session",
+      triggerAlertOnComplete: true,
+      completed: false
+    }
+  ],
   chat: {
     enabled: true,
     overlayUrl: "http://localhost:3000/overlay/chat",
@@ -195,6 +316,7 @@ interface AppState {
   currentSpeakingText: string;
   chatPaused: boolean;
   setConfig: (config: AppConfig) => void;
+  setGoals: (goals: GoalState[]) => void;
   patchConfig: (config: DeepPartial<AppConfig>) => void;
   setStatus: (status: TikTokStatus) => void;
   setStats: (stats: AppStats) => void;
@@ -208,40 +330,57 @@ interface AppState {
   setChatPaused: (paused: boolean) => void;
 }
 
-export const useAppStore = create<AppState>((set, get) => ({
-  config: defaultConfig,
-  status: {
-    status: "disconnected",
-    username: "",
-    roomId: ""
-  },
-  stats: defaultStats,
-  overlayEvents: [],
-  chatMessages: [],
-  logs: [],
-  error: "",
-  wsConnected: false,
-  currentSpeakingText: "",
-  chatPaused: false,
-  setConfig: (config) => set({ config }),
-  patchConfig: (partial) => {
-    set({ config: deepMerge(get().config, partial) });
-  },
-  setStatus: (status) => set({ status }),
-  setStats: (stats) => set({ stats }),
-  addOverlayEvent: (event) => {
-    set({ overlayEvents: [event, ...get().overlayEvents].slice(0, 100) });
-  },
-  addChatMessage: (message) => {
-    set({ chatMessages: [message, ...get().chatMessages].slice(0, 100) });
-  },
-  clearChat: () => set({ chatMessages: [] }),
-  addLog: (log) => set({ logs: [log, ...get().logs].slice(0, 250) }),
-  setError: (error) => set({ error }),
-  setWsConnected: (wsConnected) => set({ wsConnected }),
-  setCurrentSpeakingText: (currentSpeakingText) => set({ currentSpeakingText }),
-  setChatPaused: (chatPaused) => set({ chatPaused })
-}));
+export const useAppStore = create<AppState>()(
+  persist(
+    (set, get) => ({
+      config: defaultConfig,
+      status: {
+        status: "disconnected",
+        username: "",
+        roomId: ""
+      },
+      stats: defaultStats,
+      overlayEvents: [],
+      chatMessages: [],
+      logs: [],
+      error: "",
+      wsConnected: false,
+      currentSpeakingText: "",
+      chatPaused: false,
+      setConfig: (config) => set({ config }),
+      setGoals: (goals) => set({ config: { ...get().config, goals } }),
+      patchConfig: (partial) => {
+        set({ config: deepMerge(get().config, partial) });
+      },
+      setStatus: (status) => set({ status }),
+      setStats: (stats) => set({ stats }),
+      addOverlayEvent: (event) => {
+        set({ overlayEvents: [event, ...get().overlayEvents].slice(0, 100) });
+      },
+      addChatMessage: (message) => {
+        set({ chatMessages: [message, ...get().chatMessages].slice(0, 100) });
+      },
+      clearChat: () => set({ chatMessages: [] }),
+      addLog: (log) => set({ logs: [log, ...get().logs].slice(0, 250) }),
+      setError: (error) => set({ error }),
+      setWsConnected: (wsConnected) => set({ wsConnected }),
+      setCurrentSpeakingText: (currentSpeakingText) => set({ currentSpeakingText }),
+      setChatPaused: (chatPaused) => set({ chatPaused })
+    }),
+    {
+      name: "tiktok-live-suite:config",
+      version: 1,
+      partialize: (state) => ({ config: state.config }),
+      merge: (persisted, current) => {
+        const persistedConfig = (persisted as { config?: DeepPartial<AppConfig> } | undefined)?.config;
+        return {
+          ...current,
+          config: persistedConfig ? deepMerge(current.config, persistedConfig) : current.config
+        };
+      }
+    }
+  )
+);
 
 function deepMerge<T>(target: T, partial: DeepPartial<T>): T {
   const output: Record<string, unknown> = { ...(target as Record<string, unknown>) };

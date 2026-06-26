@@ -651,3 +651,12 @@ type ToggleProps = {
 ---
 
 ไฟล์นี้สามารถแก้ไขหรือขยายได้ตามความต้องการของโปรเจค โดยควรรักษาหลักสำคัญคือ แยก route, page, feature, layout และ ui component ให้ชัดเจน ใช้ Tailwind CSS เป็นแหล่ง styling หลัก และรักษา visual style ให้อยู่ในธีมเดียวกันทั้งระบบ
+# UI Stack Update
+
+This project now uses Tailwind CSS plus shadcn/ui-style primitives for shared UI.
+
+* Start new reusable UI with shadcn/ui-style primitives in `src/components/ui/`.
+* Export shared primitives from `src/components/ui/index.ts`.
+* Keep project-specific wrappers in `src/components/ui/` only when they preserve repeated app APIs such as `TextInput`, `NumberInput`, `Toggle`, `Metric`, or `CopyRow`.
+* Keep feature-specific components outside `components/ui`.
+* Use Tailwind theme tokens and the existing muted sage palette when adapting shadcn components.

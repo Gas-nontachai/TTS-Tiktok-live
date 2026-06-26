@@ -34,12 +34,12 @@ export default function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
-      <div className="relative w-full max-w-md rounded-2xl bg-surface p-6 shadow-lg ring-1 ring-surfaceMuted">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 animate-dialog-overlay bg-black/50 backdrop-blur-[2px]" onClick={onCancel} />
+      <div className="relative w-full max-w-md animate-dialog-enter rounded-lg bg-surface p-5 shadow-xl ring-1 ring-surfaceMuted">
         <h3 className="text-lg font-semibold">{title}</h3>
         {description ? <p className="mt-2 text-sm text-textMuted">{description}</p> : null}
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="mt-6 flex flex-wrap items-center justify-end gap-2.5">
           <Button variant="secondary" onClick={onCancel}>{cancelText}</Button>
           <Button variant="danger" onClick={() => void onConfirm()}>{confirmText}</Button>
         </div>

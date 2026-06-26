@@ -12,37 +12,104 @@ export const defaultConfig: AppConfig = {
     username: ""
   },
   alerts: {
+    like: {
+      enabled: true,
+      playSound: true,
+      ttsEnabled: false,
+      template: "{likeCount} likes from {displayName}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
+      durationMs: 2200,
+      cooldownMs: 0,
+      volume: 65,
+      enterAnimation: "bounce",
+      exitAnimation: "fade",
+      animationDurationMs: 300,
+      stylePreset: "neon",
+      rateLimitPerSecond: 6,
+      batchEnabled: true,
+      batchWindowMs: 650,
+      minimumTriggerCount: 1
+    },
+    comment: {
+      enabled: true,
+      playSound: true,
+      ttsEnabled: false,
+      template: "{displayName}: {message}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
+      durationMs: 3500,
+      cooldownMs: 500,
+      volume: 65,
+      enterAnimation: "slide-up",
+      exitAnimation: "fade",
+      animationDurationMs: 300,
+      stylePreset: "minimal",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
+    },
     share: {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
       template: "{username} แชร์ไลฟ์แล้ว ขอบคุณมากครับ",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
       durationMs: 4000,
       cooldownMs: 5000,
       volume: 80,
       enterAnimation: "slide-up",
       exitAnimation: "fade",
       animationDurationMs: 300,
-      stylePreset: "glass"
+      stylePreset: "glass",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
     },
     follow: {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
       template: "ขอบคุณ {username} ที่กดติดตามครับ",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
       durationMs: 5000,
       cooldownMs: 3000,
       volume: 80,
       enterAnimation: "pop",
       exitAnimation: "fade",
       animationDurationMs: 320,
-      stylePreset: "neon"
+      stylePreset: "neon",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
     },
     gift: {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
       template: "ขอบคุณ {username} สำหรับ {giftName} x{giftCount}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 96,
+      mediaPosition: "left",
       durationMs: 6000,
       cooldownMs: 0,
       volume: 90,
@@ -52,7 +119,33 @@ export const defaultConfig: AppConfig = {
       enterAnimation: "bounce",
       exitAnimation: "fade",
       animationDurationMs: 360,
-      stylePreset: "solid"
+      stylePreset: "solid",
+      rateLimitPerSecond: 8,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
+    },
+    goal: {
+      enabled: true,
+      playSound: true,
+      ttsEnabled: true,
+      template: "{goalTitle} complete: {currentValue}/{targetValue}",
+      soundUrl: "",
+      mediaUrl: "",
+      mediaType: "image",
+      mediaSize: 120,
+      mediaPosition: "top",
+      durationMs: 7000,
+      cooldownMs: 0,
+      volume: 90,
+      enterAnimation: "bounce",
+      exitAnimation: "fade",
+      animationDurationMs: 360,
+      stylePreset: "solid",
+      rateLimitPerSecond: 4,
+      batchEnabled: false,
+      batchWindowMs: 700,
+      minimumTriggerCount: 1
     }
   },
   alertQueue: {
@@ -113,9 +206,36 @@ export const defaultConfig: AppConfig = {
     showAlerts: true,
     showViewerCount: true,
     showHearts: true,
+    showGoals: true,
     showChatInMain: false,
     alertPosition: "top-right"
   },
+  goals: [
+    {
+      id: "session_likes",
+      title: "Road to 10,000 Likes",
+      type: "like",
+      currentValue: 0,
+      targetValue: 10000,
+      enabled: false,
+      isPaused: false,
+      resetMode: "session",
+      triggerAlertOnComplete: true,
+      completed: false
+    },
+    {
+      id: "session_followers",
+      title: "Road to 100 Followers",
+      type: "follow",
+      currentValue: 0,
+      targetValue: 100,
+      enabled: false,
+      isPaused: false,
+      resetMode: "session",
+      triggerAlertOnComplete: true,
+      completed: false
+    }
+  ],
   chat: {
     enabled: true,
     overlayUrl: "http://localhost:3000/overlay/chat",
@@ -188,18 +308,43 @@ const chatAnimationSchema = z.enum(["none", "fade", "slide-up", "slide-left", "s
 const heartAnimationSchema = z.enum(["float-up", "burst", "spiral", "side-float", "confetti"]);
 const viewerAnimationSchema = z.enum(["none", "fade", "pulse", "count-pop"]);
 const soundPresetSchema = z.enum(["none", "chime", "pop", "sparkle", "coin", "soft-bell", "digital"]);
+const mediaTypeSchema = z.enum(["image", "gif", "webp"]);
+const mediaPositionSchema = z.enum(["top", "bottom", "left", "right"]);
+const goalTypeSchema = z.enum(["like", "follow", "gift", "coin", "share", "custom"]);
+const goalResetModeSchema = z.enum(["session", "manual", "persistent"]);
 const alertSchema = z.object({
   enabled: z.boolean(),
   playSound: z.boolean(),
   ttsEnabled: z.boolean(),
   template: z.string().min(1),
+  soundUrl: z.string(),
+  mediaUrl: z.string(),
+  mediaType: mediaTypeSchema,
+  mediaSize: z.number().int().min(16).max(512),
+  mediaPosition: mediaPositionSchema,
   durationMs: z.number().int().min(500).max(60000),
   cooldownMs: z.number().int().min(0).max(60000),
   volume: z.number().min(0).max(100),
   enterAnimation: alertAnimationSchema,
   exitAnimation: alertAnimationSchema,
   animationDurationMs: z.number().int().min(0).max(5000),
-  stylePreset: z.enum(["glass", "neon", "solid", "minimal"])
+  stylePreset: z.enum(["glass", "neon", "solid", "minimal"]),
+  rateLimitPerSecond: z.number().int().min(0).max(60),
+  batchEnabled: z.boolean(),
+  batchWindowMs: z.number().int().min(100).max(10000),
+  minimumTriggerCount: z.number().int().min(1).max(1000000)
+});
+const goalSchema = z.object({
+  id: z.string().min(1),
+  title: z.string().min(1),
+  type: goalTypeSchema,
+  currentValue: z.number().min(0),
+  targetValue: z.number().min(1),
+  enabled: z.boolean(),
+  isPaused: z.boolean(),
+  resetMode: goalResetModeSchema,
+  triggerAlertOnComplete: z.boolean(),
+  completed: z.boolean()
 });
 
 export const configSchema = z.object({
@@ -207,13 +352,16 @@ export const configSchema = z.object({
     username: z.string().trim().default("")
   }),
   alerts: z.object({
+    like: alertSchema,
+    comment: alertSchema,
     share: alertSchema,
     follow: alertSchema,
     gift: alertSchema.extend({
       minGiftCount: z.number().int().min(1),
       minDiamondCount: z.number().int().min(0),
       waitForRepeatEnd: z.boolean()
-    })
+    }),
+    goal: alertSchema
   }),
   alertQueue: z.object({
     maxQueueSize: z.number().int().min(1).max(200),
@@ -233,7 +381,7 @@ export const configSchema = z.object({
     maxHeartsOnScreen: z.number().int().min(1).max(200),
     heartSize: z.number().int().min(8).max(128),
     animationDurationMs: z.number().int().min(300).max(10000),
-    spawnPosition: z.enum(["bottom-right", "bottom-left", "random"]),
+    spawnPosition: positionSchema,
     intensity: z.enum(["low", "normal", "high"]),
     animationPreset: heartAnimationSchema
   }),
@@ -273,9 +421,11 @@ export const configSchema = z.object({
     showAlerts: z.boolean(),
     showViewerCount: z.boolean(),
     showHearts: z.boolean(),
+    showGoals: z.boolean(),
     showChatInMain: z.boolean(),
     alertPosition: positionSchema
   }),
+  goals: z.array(goalSchema),
   chat: z.object({
     enabled: z.boolean(),
     overlayUrl: z.string(),
@@ -362,6 +512,14 @@ function mergeConfig(raw: unknown): AppConfig {
     alerts: {
       ...defaultConfig.alerts,
       ...(existing.alerts as object | undefined),
+      like: {
+        ...defaultConfig.alerts.like,
+        ...((existing.alerts as { like?: object } | undefined)?.like ?? {})
+      },
+      comment: {
+        ...defaultConfig.alerts.comment,
+        ...((existing.alerts as { comment?: object } | undefined)?.comment ?? {})
+      },
       share: {
         ...defaultConfig.alerts.share,
         ...((existing.alerts as { share?: object } | undefined)?.share ?? {})
@@ -373,6 +531,10 @@ function mergeConfig(raw: unknown): AppConfig {
       gift: {
         ...defaultConfig.alerts.gift,
         ...((existing.alerts as { gift?: object } | undefined)?.gift ?? {})
+      },
+      goal: {
+        ...defaultConfig.alerts.goal,
+        ...((existing.alerts as { goal?: object } | undefined)?.goal ?? {})
       }
     },
     alertQueue: {
@@ -400,6 +562,7 @@ function mergeConfig(raw: unknown): AppConfig {
       ...defaultConfig.overlay,
       ...(existing.overlay as object | undefined)
     },
+    goals: mergeGoals((existing.goals as object[] | undefined) ?? []),
     chat: {
       ...defaultConfig.chat,
       ...(existing.chat as object | undefined),
@@ -433,6 +596,19 @@ function mergeConfig(raw: unknown): AppConfig {
       }
     }
   }) as AppConfig;
+}
+
+function mergeGoals(rawGoals: object[]) {
+  if (!rawGoals.length) {
+    return defaultConfig.goals;
+  }
+
+  return rawGoals.map((goal, index) => ({
+    ...defaultConfig.goals[0],
+    id: `goal_${index + 1}`,
+    title: `Goal ${index + 1}`,
+    ...goal
+  }));
 }
 
 async function writeConfig(config: AppConfig): Promise<AppConfig> {

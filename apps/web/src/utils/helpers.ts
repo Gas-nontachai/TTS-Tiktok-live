@@ -10,6 +10,11 @@ export function renderTemplate(template: string, event: Partial<AlertEvent | Cha
     giftCount: String(data.giftCount || ""),
     diamondCount: String(data.diamondCount || ""),
     viewerCount: String(data.viewerCount || ""),
+    likeCount: String(data.likeCount || ""),
+    totalLikeCount: String(data.totalLikeCount || ""),
+    goalTitle: String(data.goalTitle || ""),
+    currentValue: String(data.currentValue || ""),
+    targetValue: String(data.targetValue || ""),
     message: String(data.message || ""),
     comment: String(data.message || "")
   };
@@ -112,12 +117,19 @@ export function soundPresetFor(type: AlertType, config: ReturnType<typeof useApp
   if (type === "follow") {
     return config.sounds.followPreset;
   }
+  if (type === "like") {
+    return "pop";
+  }
+  if (type === "goal") {
+    return "sparkle";
+  }
   return config.sounds.sharePreset;
 }
 
 export function alertVolumeFor(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]) {
-  const volume = type === "gift" ? config.sounds.giftVolume : type === "follow" ? config.sounds.followVolume : config.sounds.shareVolume;
-  return volume * config.sounds.masterVolume;
+  const configuredVolume = config.alerts[type]?.volume;
+  const presetVolume = type === "gift" ? config.sounds.giftVolume : type === "follow" ? config.sounds.followVolume : config.sounds.shareVolume;
+  return ((configuredVolume ?? presetVolume * 100) / 100) * config.sounds.masterVolume;
 }
 
 export function filterChat(message: ChatMessageEvent, config: ReturnType<typeof useAppStore.getState>["config"], duplicates: Record<string, number>) {
@@ -234,8 +246,28 @@ export function playTone(type: AlertType, volume: number, preset: SoundPreset = 
   window.setTimeout(() => void ctx.close(), Math.ceil((lastStop - now) * 1000) + 80);
 }
 
+export function playAlertSound(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]) {
+  const alertConfig = config.alerts[type];
+  const volume = alertVolumeFor(type, config);
+  if (alertConfig.soundUrl) {
+    const audio = new Audio(alertConfig.soundUrl);
+    audio.volume = Math.max(0, Math.min(1, volume));
+    void audio.play().catch(() => undefined);
+    return;
+  }
+  playTone(type, volume, soundPresetFor(type, config));
+}
+
 export function typeLabel(type: AlertType) {
-  return type === "gift" ? "Gift" : type === "follow" ? "Follow" : "Share";
+  const labels: Record<AlertType, string> = {
+    like: "Like",
+    comment: "Comment",
+    follow: "Follow",
+    share: "Share",
+    gift: "Gift",
+    goal: "Goal"
+  };
+  return labels[type];
 }
 
 export function routeTitle(path: string) {
@@ -243,9 +275,8 @@ export function routeTitle(path: string) {
     "/dashboard": "Dashboard",
     "/connection": "TikTok Connection",
     "/alerts": "Alerts",
+    "/goals": "Goals",
     "/chat": "Chat Overlay",
-    "/chat/filter": "Chat Filter",
-    "/chat/moderation": "Chat Moderation",
     "/overlay": "Overlay",
     "/tts": "TTS",
     "/sounds": "Sounds",
@@ -268,31 +299,37 @@ export function enqueueAlert(queue: AlertEvent[], event: AlertEvent, max: number
 }
 
 export function isAlertEvent(event: OverlayEvent): event is AlertEvent {
-  return event.type === "share" || event.type === "follow" || event.type === "gift";
+  return event.type === "share" || event.type === "follow" || event.type === "gift" || event.type === "goal";
 }
 
 function priority(event: AlertEvent, allowGiftInterrupt: boolean) {
+  if (event.type === "goal") {
+    return 120;
+  }
   if (event.type === "gift") {
     return allowGiftInterrupt ? 100 : 60;
   }
   if (event.type === "follow") {
     return 70;
   }
+  if (event.type === "like") {
+    return 40;
+  }
   return 50;
 }
 
 export function statusChipClasses(status: string): string {
-  const base = "status-chip";
+  const base = "rounded-full border px-2.5 py-1 text-xs font-extrabold capitalize";
   switch (status) {
     case "connected":
-      return `${base} connected`;
+      return `${base} border-[#1f7a72] bg-[#e7f5f2] text-[#155f5a]`;
     case "connecting":
     case "reconnecting":
-      return `${base} ${status}`;
+      return `${base} border-[#8f7211] bg-[#fff7d9] text-[#715a0a]`;
     case "error":
-      return `${base} error`;
+      return `${base} border-[#c7524a] bg-[#fff1ef] text-[#8b2019]`;
     case "disconnected":
     default:
-      return `${base} disconnected`;
+      return `${base} border-[#b7b0a1] bg-[#f1eee8] text-[#49443a]`;
   }
 }

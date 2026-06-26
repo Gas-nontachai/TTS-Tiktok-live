@@ -1,3 +1,7 @@
+import * as React from "react";
+import * as SwitchPrimitive from "@radix-ui/react-switch";
+import { cn } from "../../lib/utils";
+
 type ToggleProps = {
   label: string;
   checked: boolean;
@@ -13,32 +17,53 @@ export default function Toggle({
   checked,
   onChange,
   needSpan = false,
-  activeText = "เปิด",
-  inactiveText = "ปิด",
+  activeText = "ACTIVE",
+  inactiveText = "INACTIVE",
   className = ""
 }: ToggleProps) {
   return (
-    <div className={"grid gap-2 text-sm font-semibold text-text " + className}>
+    <div className={cn("grid gap-2 text-sm font-semibold text-text", className)}>
       {needSpan && <span>{label}</span>}
       <button
         type="button"
         aria-pressed={checked}
         onClick={() => onChange(!checked)}
-        className={
-          "inline-flex w-full items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sage/40 " +
-          (checked
-            ? "bg-sage text-white hover:bg-sage/90"
-            : "bg-surfaceMuted text-text hover:bg-surface/90")
-        }
+        className={cn(
+          "group flex min-h-10 w-full items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm font-semibold shadow-sm transition focus:outline-none focus:ring-2 focus:ring-sage/30",
+          checked
+            ? "border-[#4f624a] bg-[#52684d] text-white shadow-[inset_0_1px_6px_rgba(0,0,0,0.2)] hover:bg-[#4a6046]"
+            : "border-[#c9c3b6] bg-white text-text hover:border-[#8c8c8c] hover:bg-surface"
+        )}
       >
-        <span>{checked ? `${activeText} ${label}` : `${inactiveText} ${label}`}</span>
+        <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{label}</span>
         <span
-          className={
-            "h-2.5 w-2.5 rounded-full transition " +
-            (checked ? "bg-white/90" : "bg-slate-400")
-          }
-        />
+          className={cn(
+            "shrink-0 rounded-sm border px-1.5 py-0.5 text-[0.65rem] font-bold tracking-wide",
+            checked
+              ? "border-white/35 bg-white/18 text-white"
+              : "border-surfaceMuted bg-surface text-textMuted"
+          )}
+        >
+          {checked ? activeText : inactiveText}
+        </span>
       </button>
     </div>
+  );
+}
+
+export function Switch({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>) {
+  return (
+    <SwitchPrimitive.Root
+      className={cn(
+        "relative h-6 w-11 shrink-0 rounded-full bg-surfaceMuted transition focus:outline-none focus:ring-2 focus:ring-sage/30 data-[state=checked]:bg-sage",
+        className
+      )}
+      {...props}
+    >
+      <SwitchPrimitive.Thumb className="block h-5 w-5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0" />
+    </SwitchPrimitive.Root>
   );
 }

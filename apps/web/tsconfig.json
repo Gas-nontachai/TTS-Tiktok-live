@@ -3,6 +3,12 @@
   "compilerOptions": {
     "composite": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    },
     "lib": [
       "ES2022",
       "DOM",

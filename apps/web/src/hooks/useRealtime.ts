@@ -10,6 +10,7 @@ export function useRealtime() {
   const clearChat = useAppStore((state) => state.clearChat);
   const patchConfig = useAppStore((state) => state.patchConfig);
   const setConfig = useAppStore((state) => state.setConfig);
+  const setGoals = useAppStore((state) => state.setGoals);
   const setStatus = useAppStore((state) => state.setStatus);
   const setStats = useAppStore((state) => state.setStats);
   const setError = useAppStore((state) => state.setError);
@@ -37,6 +38,10 @@ export function useRealtime() {
 
         if (message.type === "overlay_event") {
           addOverlayEvent(message.payload);
+        }
+
+        if (message.type === "goal_updated") {
+          setGoals(message.payload);
         }
 
         if (message.type === "chat_message") {
@@ -110,6 +115,7 @@ export function useRealtime() {
     clearChat,
     patchConfig,
     setConfig,
+    setGoals,
     setChatPaused,
     setError,
     setStats,

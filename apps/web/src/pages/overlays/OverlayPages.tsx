@@ -1,28 +1,184 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Pause, Play } from "lucide-react";
 import { useAppStore } from "../../stores/appStore";
 import { useSpeechQueue } from "../../hooks/useSpeechQueue";
+import { useAlertQueue } from "../../hooks/useAlertQueue";
 import { Button, CopyRow, Metric } from "../../components/ui";
 import { Avatar } from "../../components";
-import type { AlertEvent, ChatMessageEvent } from "../../types";
+import type { AlertEvent, ChatMessageEvent, GoalConfig } from "../../types";
 import { ttsPlayerUrl } from "../../config/constants";
-import { alertVolumeFor, chatBoxStyle, claimRecentKey, enqueueAlert, eventSemanticKey, filterChat, isAlertEvent, playTone, renderTemplate, soundPresetFor, trimMessages, typeLabel } from "../../utils/helpers";
+import { cn } from "../../lib/utils";
+import { chatBoxStyle, filterChat, renderTemplate, trimMessages, typeLabel } from "../../utils/helpers";
 
-const semanticEventTtlMs = 30000;
+const obsOverlayClass = "pointer-events-none relative h-screen w-screen overflow-hidden bg-transparent font-sans";
+
+type HeartParticle = {
+  id: string;
+  x: number;
+  y: number;
+  size: number;
+  duration: number;
+  delay: number;
+};
+
+function overlayPositionClass(position: string) {
+  switch (position) {
+    case "top-left":
+      return "left-8 top-8";
+    case "top-right":
+      return "right-8 top-8";
+    case "bottom-left":
+      return "bottom-8 left-8";
+    case "bottom-right":
+      return "bottom-8 right-8";
+    default:
+      return "bottom-8 left-8";
+  }
+}
+
+function viewerAnimationClass(animation: string) {
+  switch (animation) {
+    case "fade":
+      return "animate-fade-in";
+    case "pulse":
+      return "animate-viewer-pulse";
+    case "count-pop":
+      return "animate-count-pop";
+    default:
+      return "";
+  }
+}
+
+function heartAnimationClass(animation: string) {
+  switch (animation) {
+    case "burst":
+      return "animate-heart-burst";
+    case "spiral":
+      return "animate-heart-spiral";
+    case "side-float":
+      return "animate-heart-side-float";
+    case "confetti":
+      return "animate-heart-confetti";
+    default:
+      return "animate-float-heart";
+  }
+}
+
+function createHeartParticles(eventId: string, count: number, baseSize: number, baseDuration: number): HeartParticle[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `${eventId}_${index}_${Date.now()}`,
+    x: 16 + Math.random() * 190,
+    y: 10 + Math.random() * 120,
+    size: Math.max(18, baseSize + Math.round((Math.random() - 0.5) * 12)),
+    duration: Math.max(900, baseDuration + Math.round((Math.random() - 0.5) * 420)),
+    delay: index * 45 + Math.round(Math.random() * 120)
+  }));
+}
+
+function heartPositionStyle(position: string, heart: HeartParticle): CSSProperties {
+  const base: CSSProperties = {
+    fontSize: heart.size,
+    animationDuration: `${heart.duration}ms`,
+    animationDelay: `${heart.delay}ms`
+  };
+
+  if (position.includes("left")) {
+    base.left = `${heart.x}px`;
+  } else {
+    base.right = `${heart.x}px`;
+  }
+
+  if (position.includes("top")) {
+    base.top = `${heart.y}px`;
+  } else {
+    base.bottom = `${heart.y}px`;
+  }
+
+  return base;
+}
+
+function alertAnimationClass(animation: string) {
+  switch (animation) {
+    case "none":
+      return "";
+    case "pop":
+      return "animate-alert-pop";
+    case "bounce":
+      return "animate-alert-bounce";
+    case "zoom":
+      return "animate-alert-zoom";
+    case "flip":
+      return "animate-alert-flip";
+    case "slide-up":
+      return "animate-slide-up";
+    case "slide-left":
+      return "animate-slide-left";
+    case "slide-right":
+      return "animate-slide-right";
+    case "glow-pulse":
+      return "animate-alert-glow-pulse";
+    case "fade":
+      return "animate-fade-in";
+    default:
+      return "animate-alert-pop";
+  }
+}
+
+function alertStyleClass(style: string) {
+  switch (style) {
+    case "neon":
+      return "border-[#79e0d4]/75 bg-[#071512]/85 shadow-[0_0_28px_rgba(121,224,212,0.45)]";
+    case "solid":
+      return "border-[#52684d] bg-[#52684d]";
+    case "minimal":
+      return "border-white/25 bg-black/45 shadow-[0_14px_40px_rgba(0,0,0,0.25)]";
+    default:
+      return "border-white/25 bg-black/55 backdrop-blur-md";
+  }
+}
+
+function mediaPositionClass(position: string) {
+  switch (position) {
+    case "right":
+      return "flex-row-reverse items-center";
+    case "top":
+      return "flex-col items-center text-center";
+    case "bottom":
+      return "flex-col-reverse items-center text-center";
+    default:
+      return "flex-row items-center";
+  }
+}
+
+function chatAnimationClass(animation: string) {
+  switch (animation) {
+    case "pop":
+      return "animate-alert-pop";
+    case "stack-pop":
+      return "animate-stack-pop";
+    case "soft-drop":
+      return "animate-soft-drop";
+    case "slide-up":
+      return "animate-slide-up";
+    case "slide-left":
+      return "animate-slide-left";
+    case "slide-right":
+      return "animate-slide-right";
+    case "fade":
+      return "animate-fade-in";
+    default:
+      return "";
+  }
+}
 
 export function MainOverlay() {
   const config = useAppStore((state) => state.config);
   const events = useAppStore((state) => state.overlayEvents);
-  const status = useAppStore((state) => state.status.status);
   const stats = useAppStore((state) => state.stats);
   const chatMessages = useAppStore((state) => state.chatMessages);
-  const [queue, setQueue] = useState<AlertEvent[]>([]);
-  const [current, setCurrent] = useState<AlertEvent | null>(null);
-  const [hearts, setHearts] = useState<{ id: string; x: number; y: number }[]>([]);
+  const current = useAlertQueue(config.overlay.showAlerts);
+  const [hearts, setHearts] = useState<HeartParticle[]>([]);
   const seenRef = useRef(new Set<string>());
-  const recentAlertKeysRef = useRef<Record<string, number>>({});
-  const cooldownRef = useRef<Record<string, number>>({});
-  const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const latest = events[0];
@@ -34,118 +190,32 @@ export function MainOverlay() {
     if (latest.type === "like" && config.overlay.showHearts && config.likeHearts.enabled) {
       const cap = config.likeHearts.intensity === "high" ? 12 : config.likeHearts.intensity === "normal" ? 6 : 3;
       const count = Math.min(latest.likeCount || 1, cap, config.likeHearts.maxHeartsOnScreen);
-      const next = Array.from({ length: count }, (_, index) => ({ id: `${latest.id}_${index}`, x: Math.random() * 80, y: Math.random() * 40 }));
+      const next = createHeartParticles(latest.id, count, config.likeHearts.heartSize, config.likeHearts.animationDurationMs);
       setHearts((items) => [...items, ...next].slice(-config.likeHearts.maxHeartsOnScreen));
-      window.setTimeout(() => setHearts((items) => items.filter((heart) => !next.some((candidate) => candidate.id === heart.id))), config.likeHearts.animationDurationMs);
-    }
-
-    if ((latest.type === "share" || latest.type === "follow" || latest.type === "gift") && config.overlay.showAlerts) {
-      if (!claimRecentKey(recentAlertKeysRef.current, eventSemanticKey(latest), semanticEventTtlMs)) {
-        return;
-      }
-
-      const alertConfig = config.alerts[latest.type];
-      const now = Date.now();
-      if (!alertConfig.enabled || now < (cooldownRef.current[latest.type] || 0)) {
-        return;
-      }
-      if (latest.type === "gift") {
-        if (latest.giftCount < config.alerts.gift.minGiftCount || (latest.diamondCount || 0) < config.alerts.gift.minDiamondCount) {
-          return;
-        }
-        if (config.alerts.gift.waitForRepeatEnd && latest.repeatEnd === false) {
-          return;
-        }
-      }
-      cooldownRef.current[latest.type] = now + alertConfig.cooldownMs;
-      setQueue((items) => enqueueAlert(items, latest, config.alertQueue.maxQueueSize, config.alertQueue.allowGiftInterrupt));
+      const cleanupMs = Math.max(...next.map((heart) => heart.duration + heart.delay)) + 120;
+      window.setTimeout(() => setHearts((items) => items.filter((heart) => !next.some((candidate) => candidate.id === heart.id))), cleanupMs);
     }
   }, [config, events]);
 
-  useEffect(() => {
-    if (status !== "disconnected" || !config.alertQueue.clearQueueOnDisconnect) {
-      return;
-    }
-
-    if (timeoutRef.current) {
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    setQueue([]);
-    setCurrent(null);
-  }, [config.alertQueue.clearQueueOnDisconnect, status]);
-
-  useEffect(() => {
-    if (current || queue.length === 0) {
-      return;
-    }
-
-    const [next, ...rest] = queue;
-    setCurrent(next);
-    setQueue(rest);
-    const alertConfig = config.alerts[next.type];
-
-    if (alertConfig.playSound && config.sounds.enabled) {
-      playTone(next.type, alertVolumeFor(next.type, config), soundPresetFor(next.type, config));
-    }
-
-    if (timeoutRef.current) {
-      window.clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = window.setTimeout(() => {
-      timeoutRef.current = null;
-      setCurrent(null);
-    }, alertConfig.durationMs);
-  }, [config, current, queue]);
-
-  useEffect(() => {
-    const skip = () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      setCurrent(null);
-    };
-    window.addEventListener("skip-alert", skip);
-    return () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-      window.removeEventListener("skip-alert", skip);
-    };
-  }, []);
-
   return (
-    <main className="obs-overlay">
+    <main className={obsOverlayClass}>
       {config.overlay.showViewerCount && config.viewerCount.enabled ? (
-        <div className={`viewer-count ${config.viewerCount.position} viewer-anim-${config.viewerCount.animationPreset}`} style={{ fontSize: config.viewerCount.fontSize }}>
+        <div key={`${config.viewerCount.animationPreset}-${stats.viewerCount}`} className={cn("absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] will-change-transform", overlayPositionClass(config.viewerCount.position), viewerAnimationClass(config.viewerCount.animationPreset))} style={{ fontSize: config.viewerCount.fontSize }}>
           {config.viewerCount.showIcon ? "👁 " : null}
           {config.viewerCount.label} {stats.viewerCount}
         </div>
       ) : null}
-      {current ? (
-        <div
-          className={`alert-card ${config.overlay.alertPosition} alert-anim-${config.alerts[current.type].enterAnimation} alert-style-${config.alerts[current.type].stylePreset}`}
-          style={{ animationDuration: `${config.alerts[current.type].animationDurationMs}ms` }}
-        >
-          <strong>{typeLabel(current.type)}</strong>
-          <span>{renderTemplate(config.alerts[current.type].template, current)}</span>
-        </div>
-      ) : null}
+      {current ? <AlertCard event={current} /> : null}
       {hearts.map((heart) => (
         <span
           key={heart.id}
-          className={`floating-heart ${config.likeHearts.spawnPosition} heart-anim-${config.likeHearts.animationPreset}`}
-          style={{
-            fontSize: config.likeHearts.heartSize,
-            animationDuration: `${config.likeHearts.animationDurationMs}ms`,
-            right: `${heart.x}px`,
-            bottom: `${heart.y}px`
-          }}
+          className={cn("absolute z-[4] transform-gpu text-[#ff3f86] [filter:drop-shadow(0_10px_18px_rgba(255,63,134,0.4))] will-change-transform", heartAnimationClass(config.likeHearts.animationPreset))}
+          style={heartPositionStyle(config.likeHearts.spawnPosition, heart)}
         >
           ♥
         </span>
       ))}
+      {config.overlay.showGoals ? <GoalLayer /> : null}
       {config.overlay.showChatInMain ? <ChatBox messages={chatMessages} /> : null}
     </main>
   );
@@ -153,7 +223,7 @@ export function MainOverlay() {
 
 export function AlertsOverlay() {
   return (
-    <main className="obs-overlay">
+    <main className={obsOverlayClass}>
       <AlertsLayer />
     </main>
   );
@@ -161,121 +231,96 @@ export function AlertsOverlay() {
 
 function AlertsLayer() {
   const config = useAppStore((state) => state.config);
-  const events = useAppStore((state) => state.overlayEvents);
-  const status = useAppStore((state) => state.status.status);
-  const [queue, setQueue] = useState<AlertEvent[]>([]);
-  const [current, setCurrent] = useState<AlertEvent | null>(null);
-  const seenRef = useRef(new Set<string>());
-  const recentAlertKeysRef = useRef<Record<string, number>>({});
-  const cooldownRef = useRef<Record<string, number>>({});
-  const timeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const latest = events[0];
-    if (!latest || !isAlertEvent(latest) || seenRef.current.has(latest.id)) {
-      return;
-    }
-    seenRef.current.add(latest.id);
-
-    if (!config.overlay.showAlerts) {
-      return;
-    }
-    if (!claimRecentKey(recentAlertKeysRef.current, eventSemanticKey(latest), semanticEventTtlMs)) {
-      return;
-    }
-
-    const alertConfig = config.alerts[latest.type];
-    const now = Date.now();
-    if (!alertConfig.enabled || now < (cooldownRef.current[latest.type] || 0)) {
-      return;
-    }
-
-    if (latest.type === "gift") {
-      if (latest.giftCount < config.alerts.gift.minGiftCount || (latest.diamondCount || 0) < config.alerts.gift.minDiamondCount) {
-        return;
-      }
-      if (config.alerts.gift.waitForRepeatEnd && latest.repeatEnd === false) {
-        return;
-      }
-    }
-
-    cooldownRef.current[latest.type] = now + alertConfig.cooldownMs;
-    setQueue((items) => enqueueAlert(items, latest, config.alertQueue.maxQueueSize, config.alertQueue.allowGiftInterrupt));
-  }, [config, events]);
-
-  useEffect(() => {
-    if (status !== "disconnected" || !config.alertQueue.clearQueueOnDisconnect) {
-      return;
-    }
-
-    if (timeoutRef.current) {
-      window.clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-    setQueue([]);
-    setCurrent(null);
-  }, [config.alertQueue.clearQueueOnDisconnect, status]);
-
-  useEffect(() => {
-    if (current || queue.length === 0 || !config.overlay.showAlerts) {
-      return;
-    }
-
-    const [next, ...rest] = queue;
-    const alertConfig = config.alerts[next.type];
-    setQueue(rest);
-    setCurrent(next);
-
-    if (alertConfig.playSound && config.sounds.enabled) {
-      playTone(next.type, alertVolumeFor(next.type, config), soundPresetFor(next.type, config));
-    }
-
-    if (timeoutRef.current) {
-      window.clearTimeout(timeoutRef.current);
-    }
-    timeoutRef.current = window.setTimeout(() => {
-      timeoutRef.current = null;
-      setCurrent(null);
-    }, alertConfig.durationMs);
-  }, [config, current, queue]);
-
-  useEffect(() => {
-    const skip = () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      setCurrent(null);
-    };
-    window.addEventListener("skip-alert", skip);
-    return () => {
-      if (timeoutRef.current) {
-        window.clearTimeout(timeoutRef.current);
-      }
-      window.removeEventListener("skip-alert", skip);
-    };
-  }, []);
+  const current = useAlertQueue(config.overlay.showAlerts);
 
   if (!config.overlay.showAlerts || !current) {
     return null;
   }
 
+  return <AlertCard event={current} />;
+}
+
+function AlertCard({ event }: { event: AlertEvent }) {
+  const config = useAppStore((state) => state.config);
+  const alertConfig = config.alerts[event.type];
+
   return (
     <div
-      className={`alert-card ${config.overlay.alertPosition} alert-anim-${config.alerts[current.type].enterAnimation} alert-style-${config.alerts[current.type].stylePreset}`}
-      style={{ animationDuration: `${config.alerts[current.type].animationDurationMs}ms` }}
+      key={`${event.id}-${alertConfig.enterAnimation}-${alertConfig.animationDurationMs}`}
+      className={cn(
+        "absolute z-10 flex max-w-[min(620px,86vw)] transform-gpu gap-3 rounded-lg border px-5 py-4 text-white shadow-[0_20px_55px_rgba(0,0,0,0.35)] [overflow-wrap:anywhere] will-change-transform",
+        overlayPositionClass(config.overlay.alertPosition),
+        mediaPositionClass(alertConfig.mediaPosition),
+        alertAnimationClass(alertConfig.enterAnimation),
+        alertStyleClass(alertConfig.stylePreset)
+      )}
+      style={{ animationDuration: `${alertConfig.animationDurationMs}ms` }}
     >
-      <strong>{typeLabel(current.type)}</strong>
-      <span>{renderTemplate(config.alerts[current.type].template, current)}</span>
+      {alertConfig.mediaUrl ? (
+        <img
+          src={alertConfig.mediaUrl}
+          alt=""
+          className="shrink-0 rounded-lg object-contain"
+          style={{ width: alertConfig.mediaSize, height: alertConfig.mediaSize }}
+        />
+      ) : null}
+      <div className="grid min-w-0 gap-1">
+        <strong className="text-sm uppercase tracking-[0.08em] text-white/80">{typeLabel(event.type)}</strong>
+        <span className="text-2xl font-black leading-tight">{renderTemplate(alertConfig.template, event)}</span>
+      </div>
     </div>
   );
 }
 
 export function ViewerCountOverlay() {
   return (
-    <main className="obs-overlay">
+    <main className={obsOverlayClass}>
       <ViewerCountLayer />
     </main>
+  );
+}
+
+export function GoalsOverlay() {
+  return (
+    <main className={obsOverlayClass}>
+      <GoalLayer />
+    </main>
+  );
+}
+
+function GoalLayer() {
+  const config = useAppStore((state) => state.config);
+  const activeGoals = config.goals.filter((goal) => goal.enabled);
+
+  if (!config.overlay.showGoals || activeGoals.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="absolute bottom-8 left-8 grid w-[min(480px,calc(100vw-48px))] gap-2.5">
+      {activeGoals.map((goal) => (
+        <GoalWidget key={goal.id} goal={goal} />
+      ))}
+    </section>
+  );
+}
+
+function GoalWidget({ goal }: { goal: GoalConfig }) {
+  const percent = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
+
+  return (
+    <article className={cn("grid gap-2 rounded-lg border border-white/30 bg-[rgba(18,24,20,0.78)] p-3 text-white shadow-[0_18px_44px_rgba(0,0,0,0.35)] backdrop-blur-md", goal.completed ? "border-[#f7c948] shadow-[0_0_24px_rgba(247,201,72,0.35)]" : "")}>
+      <header className="flex items-center justify-between gap-3">
+        <strong className="min-w-0 truncate">{goal.title}</strong>
+        <span className="text-sm font-bold text-white/80">{percent}%</span>
+      </header>
+      <div className="h-2.5 overflow-hidden rounded-full bg-white/20">
+        <span className="block h-full rounded-full bg-gradient-to-r from-[#69d391] to-[#f7c948]" style={{ width: `${percent}%` }} />
+      </div>
+      <p className="text-sm text-white/80">
+        {Math.floor(goal.currentValue).toLocaleString()} / {Math.floor(goal.targetValue).toLocaleString()}
+      </p>
+    </article>
   );
 }
 
@@ -288,7 +333,7 @@ function ViewerCountLayer() {
   }
 
   return (
-    <div className={`viewer-count ${config.viewerCount.position} viewer-anim-${config.viewerCount.animationPreset}`} style={{ fontSize: config.viewerCount.fontSize }}>
+    <div key={`${config.viewerCount.animationPreset}-${stats.viewerCount}`} className={cn("absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] will-change-transform", overlayPositionClass(config.viewerCount.position), viewerAnimationClass(config.viewerCount.animationPreset))} style={{ fontSize: config.viewerCount.fontSize }}>
       {config.viewerCount.showIcon ? "👁 " : null}
       {config.viewerCount.label} {stats.viewerCount}
     </div>
@@ -297,7 +342,7 @@ function ViewerCountLayer() {
 
 export function HeartsOverlay() {
   return (
-    <main className="obs-overlay">
+    <main className={obsOverlayClass}>
       <HeartsLayer />
     </main>
   );
@@ -306,7 +351,7 @@ export function HeartsOverlay() {
 function HeartsLayer() {
   const config = useAppStore((state) => state.config);
   const events = useAppStore((state) => state.overlayEvents);
-  const [hearts, setHearts] = useState<{ id: string; x: number; y: number }[]>([]);
+  const [hearts, setHearts] = useState<HeartParticle[]>([]);
   const seenRef = useRef(new Set<string>());
 
   useEffect(() => {
@@ -322,9 +367,10 @@ function HeartsLayer() {
 
     const cap = config.likeHearts.intensity === "high" ? 12 : config.likeHearts.intensity === "normal" ? 6 : 3;
     const count = Math.min(latest.likeCount || 1, cap, config.likeHearts.maxHeartsOnScreen);
-    const next = Array.from({ length: count }, (_, index) => ({ id: `${latest.id}_${index}`, x: Math.random() * 80, y: Math.random() * 40 }));
+    const next = createHeartParticles(latest.id, count, config.likeHearts.heartSize, config.likeHearts.animationDurationMs);
     setHearts((items) => [...items, ...next].slice(-config.likeHearts.maxHeartsOnScreen));
-    window.setTimeout(() => setHearts((items) => items.filter((heart) => !next.some((candidate) => candidate.id === heart.id))), config.likeHearts.animationDurationMs);
+    const cleanupMs = Math.max(...next.map((heart) => heart.duration + heart.delay)) + 120;
+    window.setTimeout(() => setHearts((items) => items.filter((heart) => !next.some((candidate) => candidate.id === heart.id))), cleanupMs);
   }, [config, events]);
 
   if (!config.overlay.showHearts || !config.likeHearts.enabled) {
@@ -336,13 +382,8 @@ function HeartsLayer() {
       {hearts.map((heart) => (
         <span
           key={heart.id}
-          className={`floating-heart ${config.likeHearts.spawnPosition} heart-anim-${config.likeHearts.animationPreset}`}
-          style={{
-            fontSize: config.likeHearts.heartSize,
-            animationDuration: `${config.likeHearts.animationDurationMs}ms`,
-            right: `${heart.x}px`,
-            bottom: `${heart.y}px`
-          }}
+          className={cn("absolute z-[4] transform-gpu text-[#ff3f86] [filter:drop-shadow(0_10px_18px_rgba(255,63,134,0.4))] will-change-transform", heartAnimationClass(config.likeHearts.animationPreset))}
+          style={heartPositionStyle(config.likeHearts.spawnPosition, heart)}
         >
           ♥
         </span>
@@ -352,7 +393,7 @@ function HeartsLayer() {
 }
 
 export function TtsOverlay() {
-  return <main className="obs-overlay" aria-label="TTS moved to browser player" />;
+  return <main className={obsOverlayClass} aria-label="TTS moved to browser player" />;
 }
 
 export function TtsPlayerPage() {
@@ -368,14 +409,14 @@ export function TtsPlayerPage() {
   };
 
   return (
-    <main className="tts-player-page">
-      <section className="tts-player-panel">
+    <main className="grid min-h-screen place-items-center bg-surface p-5 text-text">
+      <section className="grid w-full max-w-[820px] animate-panel-enter gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-5 shadow-[0_18px_50px_rgba(47,53,46,0.12)]">
         <div>
-          <p className="eyebrow">Browser TTS Player</p>
+          <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-textMuted">Browser TTS Player</p>
           <h1>เล่นเสียง TTS ผ่าน Browser</h1>
-          <p className="quiet">เปิดหน้านี้ค้างไว้บนเครื่องสตรีม แล้วกด Enable Audio ก่อนเริ่มไลฟ์ OBS overlay จะไม่พูดเองแล้ว</p>
+          <p className="mt-2 text-sm text-textMuted">เปิดหน้านี้ค้างไว้บนเครื่องสตรีม แล้วกด Enable Audio ก่อนเริ่มไลฟ์ OBS overlay จะไม่พูดเองแล้ว</p>
         </div>
-        <div className="button-row">
+        <div className="flex flex-wrap gap-2.5">
           <Button
             onClick={() => {
               setAudioEnabled(true);
@@ -385,13 +426,13 @@ export function TtsPlayerPage() {
           </Button>
           <Button variant="secondary" onClick={stopAllTts}><Pause size={16} />Stop</Button>
         </div>
-        <div className="metric-panel">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
           <Metric label="WebSocket" value={wsConnected ? "online" : "offline"} />
           <Metric label="Audio" value={audioEnabled ? "enabled" : "waiting"} />
           <Metric label="TTS" value={enabled ? "ready" : "disabled"} />
           <Metric label="Scope" value="global" />
         </div>
-        <div className="player-status">
+        <div className="grid gap-1 rounded-md border border-surfaceMuted bg-white p-3">
           <span>Last spoken</span>
           <strong>{currentSpeakingText || "Idle"}</strong>
         </div>
@@ -434,7 +475,7 @@ export function ChatOverlay() {
   }, [incomingMessages.length]);
 
   return (
-    <main className="obs-overlay chat-only">
+    <main className={obsOverlayClass}>
       <ChatBox messages={messages} />
     </main>
   );
@@ -447,11 +488,15 @@ function ChatBox({ messages }: { messages: ChatMessageEvent[] }) {
   const ordered = config.chat.display.messageOrder === "newest-first" ? messages : [...messages].sort((a, b) => a.timestamp - b.timestamp);
 
   return (
-    <section className="chat-box" style={style}>
+    <section className="absolute z-[6] flex flex-col justify-end overflow-hidden" style={style}>
       {ordered.map((message) => (
         <article
           key={message.id}
-          className={`chat-message ${config.chat.display.compactMode ? "compact" : "bubble"} ${config.chat.animation.enabled ? config.chat.animation.enterAnimation : ""}`}
+          className={cn(
+            "flex items-start gap-2.5 border border-transparent leading-[1.28] [overflow-wrap:anywhere]",
+            config.chat.display.compactMode ? "block" : "",
+            config.chat.animation.enabled ? chatAnimationClass(config.chat.animation.enterAnimation) : ""
+          )}
           style={{
             color: theme.textColor,
             fontFamily: theme.fontFamily,
@@ -462,17 +507,18 @@ function ChatBox({ messages }: { messages: ChatMessageEvent[] }) {
             opacity: theme.opacity / 100,
             padding: theme.padding,
             marginBottom: theme.spacing,
+            animationDuration: `${config.chat.animation.durationMs}ms`,
             boxShadow: theme.shadowEnabled ? "0 10px 30px rgba(0,0,0,0.35)" : "none"
           }}
         >
           {config.chat.display.showAvatar && !config.chat.display.compactMode ? <Avatar message={message} /> : null}
-          <div>
-            <header>
+          <div className="min-w-0">
+            <header className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {config.chat.display.showDisplayName ? <strong style={{ color: theme.usernameColor, fontSize: theme.usernameFontSize }}>{message.displayName || message.username}</strong> : null}
-              {config.chat.display.showUsername ? <span>@{message.username}</span> : null}
-              {config.chat.display.showTimestamp ? <time>{new Date(message.timestamp).toLocaleTimeString()}</time> : null}
+              {config.chat.display.showUsername ? <span className="text-[0.85em] opacity-70">@{message.username}</span> : null}
+              {config.chat.display.showTimestamp ? <time className="text-[0.8em] opacity-60">{new Date(message.timestamp).toLocaleTimeString()}</time> : null}
             </header>
-            <p>{message.message}</p>
+            <p className="m-0">{message.message}</p>
           </div>
         </article>
       ))}

@@ -185,7 +185,10 @@ function shouldSpeakAlert(event: AlertEvent, config: ReturnType<typeof useAppSto
 }
 
 function isTestAlert(event: AlertEvent) {
-  return event.userId?.startsWith("tester_") || event.username.startsWith("tester_");
+  if (!("username" in event)) {
+    return false;
+  }
+  return event.userId?.startsWith("tester_") || event.username?.startsWith("tester_");
 }
 
 function claimSpeakerLock() {

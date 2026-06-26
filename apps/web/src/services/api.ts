@@ -1,4 +1,4 @@
-import type { AppConfig, AppStats, ChatConfig, DeepPartial, LocalThaiTtsPreflight, LogEntry, TikTokStatus } from "../types";
+import type { AlertType, AppConfig, AppStats, ChatConfig, DeepPartial, GoalState, LocalThaiTtsPreflight, LogEntry, TikTokStatus } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -88,6 +88,28 @@ export function getTikTokStatus() {
   return request<TikTokStatus>("/api/tiktok/status");
 }
 
+export function uploadMedia(file: File) {
+  return new Promise<{ url: string; mediaKind: "audio" | "image" }>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Unable to read file"));
+    reader.onload = async () => {
+      try {
+        const result = await request<{ url: string; mediaKind: "audio" | "image" }>("/api/uploads", {
+          method: "POST",
+          body: JSON.stringify({
+            fileName: file.name,
+            dataUrl: String(reader.result || "")
+          })
+        });
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 export function getChatConfig() {
   return request<ChatConfig>("/api/chat/config");
 }
@@ -99,8 +121,19 @@ export function saveChatConfig(config: DeepPartial<ChatConfig>) {
   });
 }
 
-export function testAlert(type: "share" | "follow" | "gift" | "viewer-count" | "like") {
+export function testAlert(type: AlertType | "viewer-count") {
   return request<{ eventId: string }>(`/api/test/${type}`, { method: "POST" });
+}
+
+export function testGoalProgress(id: string, amount = 1) {
+  return request<GoalState[]>("/api/test/goal-progress", {
+    method: "POST",
+    body: JSON.stringify({ id, amount })
+  });
+}
+
+export function resetGoal(id: string) {
+  return request<GoalState[]>(`/api/goals/${encodeURIComponent(id)}/reset`, { method: "POST" });
 }
 
 export function testChatMessage(message: string, username = "tester", displayName = "Tester") {
