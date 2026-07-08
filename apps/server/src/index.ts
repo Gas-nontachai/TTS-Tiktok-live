@@ -1,9 +1,9 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { constants as fsConstants } from "node:fs";
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import { z } from "zod";
@@ -32,8 +32,11 @@ const logs: LogEntry[] = [];
 const recentChat: ChatMessageEvent[] = [];
 const uploadsDir = path.resolve(process.cwd(), "apps/server/data/uploads");
 const uploadsUrlPath = "/uploads";
-const localThaiTtsTimeoutMs = 180000;
-const localThaiPreflightTimeoutMs = 30000;
+const aiThaiTtsTimeoutMs = 180000;
+const aiThaiPreflightTimeoutMs = 30000;
+const aiThaiPythonPath = process.env.AI_THAI_PYTHON_PATH?.trim() || "python";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const repoRoot = path.resolve(__dirname, "../../..");
 const stats: AppStats = {
   viewerCount: 0,
   totalLikes: 0,
@@ -126,10 +129,10 @@ app.post("/api/uploads", async (req, res, next) => {
   }
 });
 
-app.get("/api/tts/local-thai/preflight", async (_req, res, next) => {
+app.get("/api/tts/ai-thai/preflight", async (_req, res, next) => {
   try {
     const config = await readConfig();
-    const result = await checkLocalThaiTts(config);
+    const result = await checkAiThaiTts(config);
     res.json({ success: true, data: result });
   } catch (error) {
     next(error);
@@ -143,40 +146,38 @@ app.post("/api/tts/synthesize", async (req, res, next) => {
     const { text } = ttsSynthesizeSchema.parse(req.body);
     const config = await readConfig();
 
-    if (config.tts.engine !== "local-thai") {
-      res.status(400).json({ success: false, message: "Local Thai TTS engine is not enabled" });
+    if (config.tts.engine !== "ai-thai") {
+      res.status(400).json({ success: false, message: "AI Thai TTS engine is not enabled" });
       return;
     }
 
-    const preflight = await checkLocalThaiTts(config);
+    const preflight = await checkAiThaiTts(config);
     if (!preflight.ready) {
       res.status(400).json({
         success: false,
-        message: `Local Thai TTS is not ready: ${preflight.checks.filter((check) => !check.ok).map((check) => check.message).join("; ")}`,
+        message: `AI Thai TTS is not ready: ${preflight.checks.filter((check) => !check.ok).map((check) => check.message).join("; ")}`,
         data: preflight
       });
       return;
     }
 
     tempDir = await mkdtemp(path.join(os.tmpdir(), "tiktok-live-tts-"));
-    const outputPath = path.join(tempDir, "speech.wav");
-    const scriptPath = path.resolve(process.cwd(), "scripts/local_thai_tts.py");
+    const outputPath = path.join(tempDir, "speech.mp3");
+    const scriptPath = path.join(repoRoot, "scripts/ai_thai_tts.py");
 
-    await runLocalThaiTts({
-      pythonPath: config.tts.localThaiPythonPath,
+    await runAiThaiTts({
+      pythonPath: aiThaiPythonPath,
       scriptPath,
-      engine: config.tts.localThaiEngine,
+      voice: config.tts.aiThaiVoice,
       text,
-      referenceAudioPath: config.tts.localThaiReferenceAudioPath,
-      referenceText: config.tts.localThaiReferenceText,
       speed: config.tts.rate,
       outputPath,
-      timeoutMs: localThaiTtsTimeoutMs
+      timeoutMs: aiThaiTtsTimeoutMs
     });
 
     const audio = await readFile(outputPath);
-    addLog({ level: "info", type: "tts", message: "Generated local Thai TTS audio", metadata: { engine: config.tts.localThaiEngine } });
-    res.setHeader("Content-Type", "audio/wav");
+    addLog({ level: "info", type: "tts", message: "Generated AI Thai TTS audio", metadata: { voice: config.tts.aiThaiVoice } });
+    res.setHeader("Content-Type", "audio/mpeg");
     res.setHeader("Cache-Control", "no-store");
     res.send(audio);
   } catch (error) {
@@ -695,60 +696,37 @@ async function resetSessionGoals(config: AppConfig) {
   return updateConfig({ goals });
 }
 
-type LocalThaiTtsCheck = {
+type AiThaiTtsCheck = {
   name: string;
   ok: boolean;
   message: string;
 };
 
-type LocalThaiTtsPreflight = {
+type AiThaiTtsPreflight = {
   ready: boolean;
-  checks: LocalThaiTtsCheck[];
+  checks: AiThaiTtsCheck[];
 };
 
-async function checkLocalThaiTts(config: AppConfig): Promise<LocalThaiTtsPreflight> {
-  const checks: LocalThaiTtsCheck[] = [];
-  const pythonPath = config.tts.localThaiPythonPath.trim();
-  const referenceAudioPath = config.tts.localThaiReferenceAudioPath.trim();
-  const referenceText = config.tts.localThaiReferenceText.trim();
+async function checkAiThaiTts(config: AppConfig): Promise<AiThaiTtsPreflight> {
+  const checks: AiThaiTtsCheck[] = [];
+  const pythonPath = aiThaiPythonPath;
 
-  if (!pythonPath) {
-    checks.push({ name: "python", ok: false, message: "Set a Python path before using Local Thai TTS" });
-  } else {
-    try {
-      const version = await runPythonVersionCheck(pythonPath, localThaiPreflightTimeoutMs);
-      checks.push({ name: "python", ok: true, message: `Python is available (${version})` });
-    } catch (error) {
-      checks.push({ name: "python", ok: false, message: error instanceof Error ? error.message : "Python check failed" });
-    }
-
-    try {
-      await runPythonDependencyCheck(pythonPath, localThaiPreflightTimeoutMs);
-      checks.push({ name: "dependencies", ok: true, message: "Python dependencies are installed" });
-    } catch (error) {
-      const details = error instanceof Error ? error.message : "Dependency check failed";
-      checks.push({ name: "dependencies", ok: false, message: `${details}. Install torch, soundfile, and flowtts dependencies` });
-    }
+  try {
+    const version = await runPythonVersionCheck(pythonPath, aiThaiPreflightTimeoutMs);
+    checks.push({ name: "python", ok: true, message: `Python is available (${version})` });
+  } catch (error) {
+    checks.push({ name: "python", ok: false, message: error instanceof Error ? error.message : "Python check failed" });
   }
 
-  if (!referenceAudioPath) {
-    checks.push({ name: "reference-audio", ok: false, message: "Set a reference WAV path before using Local Thai TTS" });
-  } else if (path.extname(referenceAudioPath).toLowerCase() !== ".wav") {
-    checks.push({ name: "reference-audio", ok: false, message: "Reference audio must be a .wav file" });
-  } else {
-    try {
-      await access(referenceAudioPath, fsConstants.R_OK);
-      checks.push({ name: "reference-audio", ok: true, message: "Reference WAV is readable" });
-    } catch {
-      checks.push({ name: "reference-audio", ok: false, message: `Reference audio not found or unreadable: ${referenceAudioPath}` });
-    }
+  try {
+    await runPythonDependencyCheck(pythonPath, aiThaiPreflightTimeoutMs);
+    checks.push({ name: "dependencies", ok: true, message: "edge-tts is installed" });
+  } catch (error) {
+    const details = error instanceof Error ? error.message : "Dependency check failed";
+    checks.push({ name: "dependencies", ok: false, message: `${details}. Install edge-tts` });
   }
 
-  checks.push(
-    referenceText
-      ? { name: "reference-text", ok: true, message: "Reference text is set" }
-      : { name: "reference-text", ok: false, message: "Set reference text that matches the WAV before using Local Thai TTS" }
-  );
+  checks.push({ name: "voice", ok: true, message: `Using AI voice ${config.tts.aiThaiVoice}` });
 
   return {
     ready: checks.every((check) => check.ok),
@@ -771,7 +749,7 @@ async function runPythonVersionCheck(pythonPath: string, timeoutMs: number) {
 async function runPythonDependencyCheck(pythonPath: string, timeoutMs: number) {
   const code = [
     "import importlib.util, sys",
-    "mods = ['torch', 'soundfile', 'flowtts']",
+    "mods = ['edge_tts']",
     "missing = [m for m in mods if importlib.util.find_spec(m) is None]",
     "if missing:",
     "    print('Missing Python modules: ' + ', '.join(missing), file=sys.stderr)",
@@ -789,13 +767,11 @@ async function runPythonDependencyCheck(pythonPath: string, timeoutMs: number) {
   return result.stdout.trim();
 }
 
-function runLocalThaiTts(input: {
+function runAiThaiTts(input: {
   pythonPath: string;
   scriptPath: string;
-  engine: string;
+  voice: string;
   text: string;
-  referenceAudioPath: string;
-  referenceText: string;
   speed: number;
   outputPath: string;
   timeoutMs: number;
@@ -804,22 +780,18 @@ function runLocalThaiTts(input: {
     command: input.pythonPath,
     args: [
       input.scriptPath,
-      "--engine",
-      input.engine,
+      "--voice",
+      input.voice,
       "--text",
       input.text,
-      "--reference-audio",
-      input.referenceAudioPath,
-      "--reference-text",
-      input.referenceText,
       "--speed",
       String(input.speed),
       "--output",
       input.outputPath
     ],
     timeoutMs: input.timeoutMs,
-    timeoutMessage: `Local Thai TTS timed out after ${Math.round(input.timeoutMs / 1000)} seconds`,
-    fallbackMessage: "Local Thai TTS failed"
+    timeoutMessage: `AI Thai TTS timed out after ${Math.round(input.timeoutMs / 1000)} seconds`,
+    fallbackMessage: "AI Thai TTS failed"
   }).then(() => undefined);
 }
 

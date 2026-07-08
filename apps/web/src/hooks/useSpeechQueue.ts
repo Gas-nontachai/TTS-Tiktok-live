@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useAppStore } from "../stores/appStore";
-import { cleanTtsText, splitTtsTextByLanguage } from "../utils/helpers";
-import { findBestVoiceForLanguage } from "../utils/speechVoices";
+import { cleanTtsText } from "../utils/helpers";
 import { synthesizeTts } from "../services/api";
 
 export function useSpeechQueue() {
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [ttsError, setTtsError] = useState("");
   const speakingRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -13,20 +11,6 @@ export function useSpeechQueue() {
   const config = useAppStore((state) => state.config);
   const setCurrentSpeakingText = useAppStore((state) => state.setCurrentSpeakingText);
   const setError = useAppStore((state) => state.setError);
-
-  useEffect(() => {
-    if (!("speechSynthesis" in window)) {
-      return;
-    }
-
-    const loadVoices = () => setVoices(window.speechSynthesis.getVoices());
-    loadVoices();
-    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
-
-    return () => {
-      window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
-    };
-  }, []);
 
   const speakText = useCallback(
     (text: string, onDone?: () => void) => {
@@ -42,107 +26,46 @@ export function useSpeechQueue() {
         return;
       }
 
-      if (config.tts.engine === "local-thai") {
-        speakingRef.current = true;
-        setTtsError("");
-        setError("");
-        setCurrentSpeakingText(cleanText);
-
-        void synthesizeTts(cleanText)
-          .then((blob) => {
-            if (audioUrlRef.current) {
-              URL.revokeObjectURL(audioUrlRef.current);
-            }
-
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            audio.volume = config.tts.volume;
-            audioRef.current = audio;
-            audioUrlRef.current = audioUrl;
-
-            const done = () => {
-              speakingRef.current = false;
-              setCurrentSpeakingText("");
-              audioRef.current = null;
-              URL.revokeObjectURL(audioUrl);
-              audioUrlRef.current = "";
-              onDone?.();
-            };
-
-            audio.addEventListener("ended", done, { once: true });
-            audio.addEventListener("error", done, { once: true });
-            return audio.play();
-          })
-          .catch((error) => {
-            const message = error instanceof Error ? error.message : "Local Thai TTS failed";
-            setTtsError(message);
-            setError(message);
-            speakingRef.current = false;
-            setCurrentSpeakingText("");
-            onDone?.();
-          });
-        return;
-      }
-
-      if (!("speechSynthesis" in window)) {
-        const message = "Browser TTS is not available in this browser.";
-        setTtsError(message);
-        setError(message);
-        onDone?.();
-        return;
-      }
-
-      const defaultVoice = voices.find((voice) => voice.name === config.tts.voiceName) ?? findBestVoiceForLanguage(voices, config.tts.lang) ?? null;
-      const englishVoice = findBestVoiceForLanguage(voices, "en-US") ?? findBestVoiceForLanguage(voices, "en") ?? defaultVoice;
-      const segments = splitTtsTextByLanguage(cleanText, config.tts.lang);
       speakingRef.current = true;
       setTtsError("");
       setError("");
       setCurrentSpeakingText(cleanText);
 
-      const done = () => {
-        speakingRef.current = false;
-        setCurrentSpeakingText("");
-        onDone?.();
-      };
+      void synthesizeTts(cleanText)
+        .then((blob) => {
+          if (audioUrlRef.current) {
+            URL.revokeObjectURL(audioUrlRef.current);
+          }
 
-      const fail = () => {
-        const message = "Browser TTS could not play this test.";
-        setTtsError(message);
-        setError(message);
-        done();
-      };
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+          audio.volume = config.tts.volume;
+          audioRef.current = audio;
+          audioUrlRef.current = audioUrl;
 
-      window.speechSynthesis.cancel();
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
+          const done = () => {
+            speakingRef.current = false;
+            setCurrentSpeakingText("");
+            audioRef.current = null;
+            URL.revokeObjectURL(audioUrl);
+            audioUrlRef.current = "";
+            onDone?.();
+          };
 
-      let segmentIndex = 0;
-      const speakNextSegment = () => {
-        const segment = segments[segmentIndex];
-        if (!segment) {
-          done();
-          return;
-        }
-
-        const utterance = new SpeechSynthesisUtterance(segment.text);
-        utterance.lang = segment.lang;
-        utterance.rate = config.tts.rate;
-        utterance.pitch = config.tts.pitch;
-        utterance.volume = config.tts.volume;
-        utterance.voice = segment.lang === "en-US" ? englishVoice : defaultVoice;
-        utterance.onend = () => {
-          segmentIndex += 1;
-          speakNextSegment();
-        };
-        utterance.onerror = fail;
-        window.speechSynthesis.speak(utterance);
-      };
-
-      speakNextSegment();
+          audio.addEventListener("ended", done, { once: true });
+          audio.addEventListener("error", done, { once: true });
+          return audio.play();
+        })
+        .catch((error) => {
+          const message = error instanceof Error ? error.message : "AI Thai TTS failed";
+          setTtsError(message);
+          setError(message);
+          speakingRef.current = false;
+          setCurrentSpeakingText("");
+          onDone?.();
+        });
     },
-    [config.tts.engine, config.tts.lang, config.tts.muted, config.tts.pitch, config.tts.rate, config.tts.voiceName, config.tts.volume, setCurrentSpeakingText, setError, voices]
+    [config.tts.muted, config.tts.volume, setCurrentSpeakingText, setError]
   );
 
   const stopSpeaking = useCallback(() => {
@@ -157,10 +80,6 @@ export function useSpeechQueue() {
       audioUrlRef.current = "";
     }
 
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.cancel();
-    }
-
     speakingRef.current = false;
     setCurrentSpeakingText("");
   }, [setCurrentSpeakingText]);
@@ -168,7 +87,6 @@ export function useSpeechQueue() {
   const isSpeaking = useCallback(() => speakingRef.current, []);
 
   return {
-    voices,
     speakText,
     testSpeak: speakText,
     stopSpeaking,

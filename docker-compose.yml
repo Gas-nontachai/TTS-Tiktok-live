@@ -1,0 +1,49 @@
+services:
+  server:
+    build:
+      context: .
+      args:
+        INSTALL_AI_THAI_TTS: ${INSTALL_AI_THAI_TTS:-true}
+    command: npm run dev:server
+    environment:
+      PORT: 3001
+      AI_THAI_PYTHON_PATH: python
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app
+      - root_node_modules:/app/node_modules
+      - server_node_modules:/app/apps/server/node_modules
+      - web_node_modules:/app/apps/web/node_modules
+      - server_data:/app/apps/server/data
+      - ./voices:/app/voices
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  web:
+    build:
+      context: .
+      args:
+        INSTALL_AI_THAI_TTS: "false"
+    command: npm run dev:web
+    environment:
+      VITE_API_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - root_node_modules:/app/node_modules
+      - server_node_modules:/app/apps/server/node_modules
+      - web_node_modules:/app/apps/web/node_modules
+    depends_on:
+      server:
+        condition: service_healthy
+
+volumes:
+  root_node_modules:
+  server_node_modules:
+  web_node_modules:
+  server_data:

@@ -111,15 +111,15 @@ export interface LogEntry {
   metadata?: Record<string, unknown>;
 }
 
-export interface LocalThaiTtsCheck {
+export interface AiThaiTtsCheck {
   name: string;
   ok: boolean;
   message: string;
 }
 
-export interface LocalThaiTtsPreflight {
+export interface AiThaiTtsPreflight {
   ready: boolean;
-  checks: LocalThaiTtsCheck[];
+  checks: AiThaiTtsCheck[];
 }
 
 export interface AlertConfig {
@@ -255,11 +255,8 @@ export interface AppConfig {
     playerEnabled: boolean;
     speakAlerts: boolean;
     speakChat: boolean;
-    engine: "browser" | "local-thai";
-    localThaiEngine: "thonburian" | "jaitts-f5tts";
-    localThaiReferenceAudioPath: string;
-    localThaiReferenceText: string;
-    localThaiPythonPath: string;
+    engine: "ai-thai";
+    aiThaiVoice: "th-TH-PremwadeeNeural" | "th-TH-NiwatNeural";
     chatPrefix: string;
     queueMode: "queue" | "interrupt";
     maxQueueSize: number;

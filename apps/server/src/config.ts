@@ -175,11 +175,8 @@ export const defaultConfig: AppConfig = {
     playerEnabled: true,
     speakAlerts: true,
     speakChat: true,
-    engine: "browser",
-    localThaiEngine: "thonburian",
-    localThaiReferenceAudioPath: "",
-    localThaiReferenceText: "",
-    localThaiPythonPath: "python",
+    engine: "ai-thai",
+    aiThaiVoice: "th-TH-PremwadeeNeural",
     chatPrefix: "",
     queueMode: "queue",
     maxQueueSize: 20,
@@ -312,6 +309,7 @@ const mediaTypeSchema = z.enum(["image", "gif", "webp"]);
 const mediaPositionSchema = z.enum(["top", "bottom", "left", "right"]);
 const goalTypeSchema = z.enum(["like", "follow", "gift", "coin", "share", "custom"]);
 const goalResetModeSchema = z.enum(["session", "manual", "persistent"]);
+const aiThaiVoiceSchema = z.enum(["th-TH-PremwadeeNeural", "th-TH-NiwatNeural"]);
 const alertSchema = z.object({
   enabled: z.boolean(),
   playSound: z.boolean(),
@@ -390,11 +388,8 @@ export const configSchema = z.object({
     playerEnabled: z.boolean(),
     speakAlerts: z.boolean(),
     speakChat: z.boolean(),
-    engine: z.enum(["browser", "local-thai"]).default("browser"),
-    localThaiEngine: z.enum(["thonburian", "jaitts-f5tts"]).default("thonburian"),
-    localThaiReferenceAudioPath: z.string().default(""),
-    localThaiReferenceText: z.string().default(""),
-    localThaiPythonPath: z.string().min(1).default("python"),
+    engine: z.literal("ai-thai").default("ai-thai"),
+    aiThaiVoice: aiThaiVoiceSchema.default("th-TH-PremwadeeNeural"),
     chatPrefix: z.string(),
     queueMode: z.enum(["queue", "interrupt"]),
     maxQueueSize: z.number().int().min(1).max(200),
@@ -552,6 +547,8 @@ function mergeConfig(raw: unknown): AppConfig {
     tts: {
       ...defaultConfig.tts,
       ...legacyTts,
+      engine: "ai-thai",
+      aiThaiVoice: normalizeAiThaiVoice(legacyTts.aiThaiVoice),
       muted: typeof legacyTts.muted === "boolean" ? legacyTts.muted : defaultConfig.tts.muted
     },
     sounds: {
@@ -596,6 +593,14 @@ function mergeConfig(raw: unknown): AppConfig {
       }
     }
   }) as AppConfig;
+}
+
+function normalizeAiThaiVoice(value: unknown): AppConfig["tts"]["aiThaiVoice"] {
+  if (value === "th-TH-PremwadeeNeural" || value === "th-TH-NiwatNeural") {
+    return value;
+  }
+
+  return defaultConfig.tts.aiThaiVoice;
 }
 
 function mergeGoals(rawGoals: object[]) {

@@ -1,11 +1,11 @@
 # TikTok Live Comment TTS MVP
 
-Local web app for connecting to a TikTok Live room, showing real-time comments, and reading them aloud with the browser `speechSynthesis` API.
+Local web app for connecting to a TikTok Live room, showing real-time comments, and reading them aloud with server-generated AI Thai voices.
 
 ## Requirements
 
 - Node.js and npm available on PATH
-- Python 3.10+ for Local Thai TTS
+- Python 3.10+ for AI Thai TTS when running without Docker
 
 ## Install
 
@@ -13,27 +13,23 @@ Local web app for connecting to a TikTok Live room, showing real-time comments, 
 npm install
 ```
 
-## Local Thai TTS Setup
+## AI Thai TTS Setup
 
-The app defaults to browser TTS. Keep it on `browser` until the Local Thai check passes.
+The app uses server-generated AI Thai TTS by default so the voice stays the same on macOS and Windows.
 
 1. Install Python dependencies in the Python environment you want the app to use:
 
 ```bash
-pip install torch cached-path librosa transformers f5-tts soundfile git+https://github.com/biodatlab/thonburian-tts.git
+pip install edge-tts
 ```
 
 2. Open the TTS page and set:
 
-- Engine: `local-thai`
-- Thai model: `thonburian` first, then try `jaitts-f5tts` after the default model works
-- Python path: the full path to the Python executable if `python` is not on PATH
-- Reference WAV path: a readable local `.wav` file
-- Reference text: the exact spoken text in the reference WAV
+- Voice: `th-TH-PremwadeeNeural` or `th-TH-NiwatNeural`
 
-3. Click `Check Local Thai TTS`.
+3. Click `Check AI Thai TTS`.
 
-The check verifies the Python path, required Python modules, reference WAV readability, and reference text. It does not download the model or generate speech. The first real test can still take longer while the model cache warms up. Speech generation is stopped after 180 seconds if Python hangs.
+AI Thai TTS uses ready-made neural Thai voices and does not use OS/browser voices. It sends the text to Microsoft Edge TTS to generate MP3 audio. Speech generation is stopped after 180 seconds if Python hangs.
 
 ## Development
 
@@ -50,6 +46,28 @@ start-dev.cmd
 - Frontend: http://localhost:3000
 - Backend: http://localhost:3001
 - WebSocket: ws://localhost:3001/ws
+
+## Docker Development
+
+Use Docker when you want the same Node/Python runtime on macOS and Windows.
+
+```bash
+docker compose up --build
+```
+
+- Frontend: http://localhost:3000
+- Backend: http://localhost:3001
+- WebSocket: ws://localhost:3001/ws
+
+The compose setup keeps `node_modules` and `apps/server/data` inside Docker volumes, so host OS differences do not leak into the app.
+
+Docker installs AI Thai TTS by default for the backend service and uses the container Python runtime.
+
+To reset persisted Docker config/uploads:
+
+```bash
+docker compose down -v
+```
 
 ## Scripts
 

@@ -393,7 +393,7 @@ function HeartsLayer() {
 }
 
 export function TtsOverlay() {
-  return <main className={obsOverlayClass} aria-label="TTS moved to browser player" />;
+  return <main className={obsOverlayClass} aria-label="TTS moved to player" />;
 }
 
 export function TtsPlayerPage() {
@@ -525,4 +525,3 @@ function ChatBox({ messages }: { messages: ChatMessageEvent[] }) {
     </section>
   );
 }
-
