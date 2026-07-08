@@ -1,20 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Upload } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
 import { Button, Toggle, TextInput, NumberInput, RangeInput, SelectInput, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
+import { AlertRenderer } from "../components/alerts/AlertRenderer";
 import { saveConfig, testAlert, testChatMessage, uploadMedia } from "../services/api";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
-import type { AlertAnimationPreset, AlertMediaPosition, AlertMediaType, AlertType, SoundPreset } from "../types";
-import { alertAnimations, buttonRowClass, chatAnimations, formGridClass, heartAnimations, panelClass, soundPresets, viewerAnimations } from "../config/constants";
+import type { AlertAnimationPreset, AlertEvent, AlertMediaPosition, AlertMediaType, AlertType, AlertVisualMode, AlertVisualTemplate, AppConfig, SoundPreset } from "../types";
+import { alertAnimations, alertVisualTemplates, buttonRowClass, chatAnimations, formGridClass, heartAnimations, panelClass, soundPresets, viewerAnimations } from "../config/constants";
 import { playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
 
 const alertTypes: AlertType[] = ["follow", "share", "gift", "goal"];
+const previewTargets: Array<AlertType | "viewer-count"> = ["like", "comment", "viewer-count", "follow", "share", "gift", "goal"];
 const mediaPositions: AlertMediaPosition[] = ["left", "right", "top", "bottom"];
 const mediaTypes: AlertMediaType[] = ["image", "gif", "webp"];
+type AlertConfigValue = AppConfig["alerts"][keyof AppConfig["alerts"]];
+type PreviewTarget = AlertType | "viewer-count";
+type PreviewHeart = {
+  id: string;
+  x: number;
+  y: number;
+  size: number;
+  duration: number;
+  delay: number;
+};
 
 function LikeHeartsConfig() {
   const config = useAppStore((state) => state.config);
   const patchConfig = useAppStore((state) => state.patchConfig);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   return (
     <section className={panelClass}>
@@ -33,8 +46,10 @@ function LikeHeartsConfig() {
       </div>
       <div className={buttonRowClass}>
         <Button onClick={() => void testAlert("like")}>Test Like Hearts</Button>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button onClick={() => void saveConfig(config)}>Save Alerts</Button>
       </div>
+      <AlertPreviewModal open={previewOpen} target="like" onClose={() => setPreviewOpen(false)} />
     </section>
   );
 }
@@ -43,6 +58,7 @@ function CommentChatConfig() {
   const config = useAppStore((state) => state.config);
   const patchConfig = useAppStore((state) => state.patchConfig);
   const [message, setMessage] = useState("สวัสดีครับ นี่คือข้อความทดสอบ");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   return (
     <section className={panelClass}>
@@ -61,8 +77,10 @@ function CommentChatConfig() {
       <TextInput label="Test message" value={message} onChange={setMessage} />
       <div className={buttonRowClass}>
         <Button onClick={() => void testChatMessage(message)}>Test Comment Chat</Button>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button onClick={() => void saveConfig(config)}>Save Chat</Button>
       </div>
+      <AlertPreviewModal open={previewOpen} target="comment" onClose={() => setPreviewOpen(false)} />
     </section>
   );
 }
@@ -70,6 +88,7 @@ function CommentChatConfig() {
 function ViewerCountConfig() {
   const config = useAppStore((state) => state.config);
   const patchConfig = useAppStore((state) => state.patchConfig);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   return (
     <section className={panelClass}>
@@ -86,8 +105,10 @@ function ViewerCountConfig() {
       </div>
       <div className={buttonRowClass}>
         <Button onClick={() => void testAlert("viewer-count")}>Test Viewer Count</Button>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button onClick={() => void saveConfig(config)}>Save Alerts</Button>
       </div>
+      <AlertPreviewModal open={previewOpen} target="viewer-count" onClose={() => setPreviewOpen(false)} />
     </section>
   );
 }
@@ -97,7 +118,10 @@ function AlertConfig({ type }: { type: AlertType }) {
   const patchConfig = useAppStore((state) => state.patchConfig);
   const { speakText } = useSpeechQueue();
   const [uploading, setUploading] = useState<"sound" | "media" | "">("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const alertConfig = config.alerts[type];
+  const visualMode = alertConfig.visualMode ?? "custom";
+  const visualTemplate = alertConfig.visualTemplate ?? "minimal-toast";
 
   async function handleUpload(file: File | undefined, kind: "sound" | "media") {
     if (!file) {
@@ -126,18 +150,59 @@ function AlertConfig({ type }: { type: AlertType }) {
         <Toggle label="Play sound" checked={alertConfig.playSound} onChange={(playSound) => patchConfig({ alerts: { [type]: { playSound } } })} />
         <Toggle label="TTS" checked={alertConfig.ttsEnabled} onChange={(ttsEnabled) => patchConfig({ alerts: { [type]: { ttsEnabled } } })} />
       </div>
-      <TextInput label="Template" value={alertConfig.template} onChange={(template) => patchConfig({ alerts: { [type]: { template } } })} />
-      <div className={formGridClass}>
-        <NumberInput label="Duration ms" value={alertConfig.durationMs} onChange={(durationMs) => patchConfig({ alerts: { [type]: { durationMs } } })} />
-        <NumberInput label="Cooldown ms" value={alertConfig.cooldownMs} onChange={(cooldownMs) => patchConfig({ alerts: { [type]: { cooldownMs } } })} />
-        <RangeInput label="Volume %" value={alertConfig.volume} min={0} max={100} step={1} showNumberInput={false} valueLabel={`${alertConfig.volume}%`} onChange={(volume) => patchConfig({ alerts: { [type]: { volume } } })} />
-        <SelectInput label="Enter animation" value={alertConfig.enterAnimation} options={alertAnimations} onChange={(enterAnimation) => patchConfig({ alerts: { [type]: { enterAnimation: enterAnimation as AlertAnimationPreset } } })} />
-        <SelectInput label="Exit animation" value={alertConfig.exitAnimation} options={alertAnimations} onChange={(exitAnimation) => patchConfig({ alerts: { [type]: { exitAnimation: exitAnimation as AlertAnimationPreset } } })} />
-        <NumberInput label="Animation ms" value={alertConfig.animationDurationMs} onChange={(animationDurationMs) => patchConfig({ alerts: { [type]: { animationDurationMs } } })} />
-        <SelectInput label="Style preset" value={alertConfig.stylePreset} options={["glass", "neon", "solid", "minimal"]} onChange={(stylePreset) => patchConfig({ alerts: { [type]: { stylePreset: stylePreset as "glass" | "neon" | "solid" | "minimal" } } })} />
-        <NumberInput label="Rate/sec" value={alertConfig.rateLimitPerSecond} onChange={(rateLimitPerSecond) => patchConfig({ alerts: { [type]: { rateLimitPerSecond } } })} />
-        <NumberInput label="Minimum count" value={alertConfig.minimumTriggerCount} onChange={(minimumTriggerCount) => patchConfig({ alerts: { [type]: { minimumTriggerCount } } })} />
-      </div>
+
+      <section className="grid gap-3 rounded-lg border border-surfaceMuted bg-white/65 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-bold text-text">Alert Visual</h3>
+            <p className="text-sm text-textMuted">Template คือ UI สำเร็จรูป ส่วน Custom คือปรับเองจาก field เดิม</p>
+          </div>
+          <div className="inline-grid grid-cols-2 rounded-md border border-surfaceMuted bg-white p-1">
+            {(["template", "custom"] as AlertVisualMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => patchConfig({ alerts: { [type]: { visualMode: mode } } })}
+                className={`min-h-9 rounded px-3 text-sm font-bold transition ${visualMode === mode ? "bg-sage text-white" : "text-textMuted hover:bg-surface"}`}
+              >
+                {mode === "template" ? "Template" : "Custom"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {visualMode === "template" ? (
+          <TemplateGallery
+            selected={visualTemplate}
+            alertConfig={alertConfig}
+            onSelect={(visualTemplate) => patchConfig({ alerts: { [type]: { visualMode: "template", visualTemplate } } })}
+          />
+        ) : (
+          <div className={formGridClass}>
+            <SelectInput label="Enter animation" value={alertConfig.enterAnimation} options={alertAnimations} onChange={(enterAnimation) => patchConfig({ alerts: { [type]: { enterAnimation: enterAnimation as AlertAnimationPreset } } })} />
+            <SelectInput label="Exit animation" value={alertConfig.exitAnimation} options={alertAnimations} onChange={(exitAnimation) => patchConfig({ alerts: { [type]: { exitAnimation: exitAnimation as AlertAnimationPreset } } })} />
+            <NumberInput label="Animation ms" value={alertConfig.animationDurationMs} onChange={(animationDurationMs) => patchConfig({ alerts: { [type]: { animationDurationMs } } })} />
+            <SelectInput label="Style preset" value={alertConfig.stylePreset} options={["glass", "neon", "solid", "minimal"]} onChange={(stylePreset) => patchConfig({ alerts: { [type]: { stylePreset: stylePreset as "glass" | "neon" | "solid" | "minimal" } } })} />
+            <SelectInput label="Media position" value={alertConfig.mediaPosition} options={mediaPositions} onChange={(mediaPosition) => patchConfig({ alerts: { [type]: { mediaPosition: mediaPosition as AlertMediaPosition } } })} />
+            <NumberInput label="Media size" value={alertConfig.mediaSize} onChange={(mediaSize) => patchConfig({ alerts: { [type]: { mediaSize } } })} />
+          </div>
+        )}
+      </section>
+
+      <section className="grid gap-3 rounded-lg border border-surfaceMuted bg-white/65 p-3">
+        <h3 className="text-base font-bold text-text">Message Text</h3>
+        <TextInput label="Message text" value={alertConfig.template} onChange={(template) => patchConfig({ alerts: { [type]: { template } } })} />
+      </section>
+
+      <section className="grid gap-3 rounded-lg border border-surfaceMuted bg-white/65 p-3">
+        <h3 className="text-base font-bold text-text">Behavior</h3>
+        <div className={formGridClass}>
+          <NumberInput label="Duration ms" value={alertConfig.durationMs} onChange={(durationMs) => patchConfig({ alerts: { [type]: { durationMs } } })} />
+          <NumberInput label="Cooldown ms" value={alertConfig.cooldownMs} onChange={(cooldownMs) => patchConfig({ alerts: { [type]: { cooldownMs } } })} />
+          <NumberInput label="Rate/sec" value={alertConfig.rateLimitPerSecond} onChange={(rateLimitPerSecond) => patchConfig({ alerts: { [type]: { rateLimitPerSecond } } })} />
+          <NumberInput label="Minimum count" value={alertConfig.minimumTriggerCount} onChange={(minimumTriggerCount) => patchConfig({ alerts: { [type]: { minimumTriggerCount } } })} />
+        </div>
+      </section>
       {type === "like" ? (
         <div className={formGridClass}>
           <Toggle label="Batch likes" checked={alertConfig.batchEnabled} onChange={(batchEnabled) => patchConfig({ alerts: { like: { batchEnabled } } })} />
@@ -151,28 +216,37 @@ function AlertConfig({ type }: { type: AlertType }) {
           <Toggle label="Wait repeat end" checked={config.alerts.gift.waitForRepeatEnd} onChange={(waitForRepeatEnd) => patchConfig({ alerts: { gift: { waitForRepeatEnd } } })} />
         </div>
       ) : null}
-      <div className={formGridClass}>
-        <SelectInput label="Sound preset" value={soundPresetFor(type, config)} options={soundPresets} onChange={(preset) => patchSoundPreset(type, preset as SoundPreset)} />
-        <TextInput label="Custom sound URL" value={alertConfig.soundUrl} onChange={(soundUrl) => patchConfig({ alerts: { [type]: { soundUrl } } })} />
-        <label className="grid min-h-11 cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[#e1dcd1] bg-white px-3 py-2 text-sm font-bold text-[#464d42]">
-          <span>{uploading === "sound" ? "Uploading..." : "Upload sound"}</span>
-          <Upload size={16} />
-          <input type="file" accept=".mp3,.wav,.ogg,audio/*" onChange={(event) => void handleUpload(event.target.files?.[0], "sound")} />
-        </label>
-        <TextInput label="Media URL" value={alertConfig.mediaUrl} onChange={(mediaUrl) => patchConfig({ alerts: { [type]: { mediaUrl } } })} />
-        <SelectInput label="Media type" value={alertConfig.mediaType} options={mediaTypes} onChange={(mediaType) => patchConfig({ alerts: { [type]: { mediaType: mediaType as AlertMediaType } } })} />
-        <SelectInput label="Media position" value={alertConfig.mediaPosition} options={mediaPositions} onChange={(mediaPosition) => patchConfig({ alerts: { [type]: { mediaPosition: mediaPosition as AlertMediaPosition } } })} />
-        <NumberInput label="Media size" value={alertConfig.mediaSize} onChange={(mediaSize) => patchConfig({ alerts: { [type]: { mediaSize } } })} />
-        <label className="grid min-h-11 cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[#e1dcd1] bg-white px-3 py-2 text-sm font-bold text-[#464d42]">
-          <span>{uploading === "media" ? "Uploading..." : "Upload media"}</span>
-          <Upload size={16} />
-          <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif,image/*" onChange={(event) => void handleUpload(event.target.files?.[0], "media")} />
-        </label>
-      </div>
+
+      <section className="grid gap-3 rounded-lg border border-surfaceMuted bg-white/65 p-3">
+        <h3 className="text-base font-bold text-text">Media & Sound</h3>
+        <div className={formGridClass}>
+          <SelectInput label="Sound preset" value={soundPresetFor(type, config)} options={soundPresets} onChange={(preset) => patchSoundPreset(type, preset as SoundPreset)} />
+          <TextInput label="Custom sound URL" value={alertConfig.soundUrl} onChange={(soundUrl) => patchConfig({ alerts: { [type]: { soundUrl } } })} />
+          <RangeInput label="Volume %" value={alertConfig.volume} min={0} max={100} step={1} showNumberInput={false} valueLabel={`${alertConfig.volume}%`} onChange={(volume) => patchConfig({ alerts: { [type]: { volume } } })} />
+          <label className="grid min-h-11 cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[#e1dcd1] bg-white px-3 py-2 text-sm font-bold text-[#464d42]">
+            <span>{uploading === "sound" ? "Uploading..." : "Upload sound"}</span>
+            <Upload size={16} />
+            <input type="file" accept=".mp3,.wav,.ogg,audio/*" onChange={(event) => void handleUpload(event.target.files?.[0], "sound")} />
+          </label>
+          <TextInput label="Media URL" value={alertConfig.mediaUrl} onChange={(mediaUrl) => patchConfig({ alerts: { [type]: { mediaUrl } } })} />
+          <SelectInput label="Media type" value={alertConfig.mediaType} options={mediaTypes} onChange={(mediaType) => patchConfig({ alerts: { [type]: { mediaType: mediaType as AlertMediaType } } })} />
+          {visualMode === "template" ? (
+            <NumberInput label="Media size" value={alertConfig.mediaSize} onChange={(mediaSize) => patchConfig({ alerts: { [type]: { mediaSize } } })} />
+          ) : null}
+          <label className="grid min-h-11 cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[#e1dcd1] bg-white px-3 py-2 text-sm font-bold text-[#464d42]">
+            <span>{uploading === "media" ? "Uploading..." : "Upload media"}</span>
+            <Upload size={16} />
+            <input type="file" accept=".png,.jpg,.jpeg,.webp,.gif,image/*" onChange={(event) => void handleUpload(event.target.files?.[0], "media")} />
+          </label>
+        </div>
+      </section>
+
       <div className={buttonRowClass}>
         <Button onClick={() => void testAlertWithTtsPreview()}>Test {typeLabel(type)}</Button>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button variant="secondary" onClick={() => playAlertSound(type, config)}>Preview Sound</Button>
       </div>
+      <AlertPreviewModal open={previewOpen} target={type} onClose={() => setPreviewOpen(false)} />
     </section>
   );
 
@@ -200,9 +274,203 @@ function AlertConfig({ type }: { type: AlertType }) {
   }
 }
 
-function sampleAlertEvent(type: AlertType) {
+function TemplateGallery({
+  selected,
+  alertConfig,
+  onSelect
+}: {
+  selected: AlertVisualTemplate;
+  alertConfig: AlertConfigValue;
+  onSelect: (template: AlertVisualTemplate) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+      {alertVisualTemplates.map((template) => {
+        const isSelected = selected === template.id;
+        const previewConfig = {
+          ...alertConfig,
+          visualMode: "template",
+          visualTemplate: template.id,
+          mediaUrl: ""
+        } as AlertConfigValue;
+
+        return (
+          <button
+            key={template.id}
+            type="button"
+            onClick={() => onSelect(template.id)}
+            className={`grid min-h-[15rem] gap-3 rounded-lg border p-3 text-left transition hover:-translate-y-0.5 ${isSelected ? "border-sage bg-[#eef6ef] shadow-[0_10px_28px_rgba(82,104,77,0.16)]" : "border-surfaceMuted bg-white hover:border-sage/60"}`}
+          >
+            <div className="relative h-40 overflow-hidden rounded-md bg-[radial-gradient(circle_at_center,#263026,#111_70%)]">
+              <AlertRenderer event={sampleAlertEvent(template.id === "goal-complete" ? "goal" : template.id === "big-shoutout" || template.id === "neon-pop" ? "follow" : "gift")} alertConfig={previewConfig} position="bottom-left" />
+            </div>
+            <div className="grid gap-1">
+              <span className="text-sm font-black text-text">{template.emoji} {template.label}</span>
+              <span className="text-xs font-medium leading-snug text-textMuted">{template.description}</span>
+              {isSelected ? <span className="text-xs font-black uppercase tracking-[0.12em] text-sage">Selected</span> : null}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: PreviewTarget; onClose: () => void }) {
+  const config = useAppStore((state) => state.config);
+  const [ratio, setRatio] = useState<"16:9" | "9:16">("16:9");
+  const previewEvent = target === "viewer-count" || target === "like" ? null : sampleAlertEvent(target);
+  const alertConfig = previewEvent ? config.alerts[previewEvent.type] : null;
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    if (open) {
+      window.addEventListener("keydown", onKey);
+    }
+
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center p-4">
+      <button className="absolute inset-0 bg-black/55 backdrop-blur-sm" type="button" aria-label="Close preview" onClick={onClose} />
+      <section className="relative grid w-full max-w-6xl gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-4 shadow-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2>{target === "viewer-count" ? "Viewer Count" : typeLabel(target)} Preview</h2>
+            <p className="text-sm text-textMuted">Preview นี้ใช้ renderer เดียวกับ OBS overlay</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {(["16:9", "9:16"] as const).map((nextRatio) => (
+              <Button key={nextRatio} type="button" variant={ratio === nextRatio ? "primary" : "secondary"} onClick={() => setRatio(nextRatio)}>
+                {nextRatio}
+              </Button>
+            ))}
+            <Button type="button" variant="secondary" onClick={onClose}>Close</Button>
+          </div>
+        </div>
+        <div className="grid place-items-center rounded-lg bg-[#141713] p-3">
+          <div className={`relative w-full overflow-hidden rounded-md bg-transparent ${ratio === "16:9" ? "aspect-video max-w-5xl" : "aspect-[9/16] max-h-[70vh] max-w-sm"}`}>
+            {previewEvent && alertConfig ? (
+              <AlertRenderer key={`${previewEvent.id}-${ratio}`} event={previewEvent} alertConfig={alertConfig} position={config.overlay.alertPosition} />
+            ) : target === "like" ? (
+              <LikeHeartsPreview key={`like-${ratio}`} />
+            ) : (
+              <ViewerCountPreview />
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function LikeHeartsPreview() {
+  const config = useAppStore((state) => state.config);
+  const hearts = createPreviewHearts(config.likeHearts.intensity === "high" ? 12 : config.likeHearts.intensity === "normal" ? 8 : 4, config.likeHearts.heartSize, config.likeHearts.animationDurationMs);
+
+  return (
+    <>
+      {hearts.map((heart) => (
+        <span
+          key={heart.id}
+          className={`absolute z-[4] transform-gpu text-[#ff3f86] [filter:drop-shadow(0_10px_18px_rgba(255,63,134,0.4))] will-change-transform ${heartAnimationClass(config.likeHearts.animationPreset)}`}
+          style={previewHeartPositionStyle(config.likeHearts.spawnPosition, heart)}
+        >
+          ♥
+        </span>
+      ))}
+    </>
+  );
+}
+
+function ViewerCountPreview() {
+  const config = useAppStore((state) => state.config);
+  const sampleViewerCount = 128;
+
+  return (
+    <div className={`absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] ${previewPositionClass(config.viewerCount.position)}`} style={{ fontSize: config.viewerCount.fontSize }}>
+      {config.viewerCount.showIcon ? "👁 " : null}
+      {config.viewerCount.label} {sampleViewerCount}
+    </div>
+  );
+}
+
+function previewPositionClass(position: string) {
+  switch (position) {
+    case "top-left":
+      return "left-8 top-8";
+    case "top-right":
+      return "right-8 top-8";
+    case "bottom-left":
+      return "bottom-8 left-8";
+    case "bottom-right":
+      return "bottom-8 right-8";
+    default:
+      return "top-8 right-8";
+  }
+}
+
+function createPreviewHearts(count: number, baseSize: number, baseDuration: number): PreviewHeart[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `preview-heart-${index}`,
+    x: 18 + (index % 4) * 42,
+    y: 18 + Math.floor(index / 4) * 38,
+    size: Math.max(18, baseSize + (index % 3) * 5),
+    duration: Math.max(900, baseDuration + index * 35),
+    delay: index * 70
+  }));
+}
+
+function previewHeartPositionStyle(position: string, heart: PreviewHeart): CSSProperties {
+  const base: CSSProperties = {
+    fontSize: heart.size,
+    animationDuration: `${heart.duration}ms`,
+    animationDelay: `${heart.delay}ms`
+  };
+
+  if (position.includes("left")) {
+    base.left = `${heart.x}px`;
+  } else {
+    base.right = `${heart.x}px`;
+  }
+
+  if (position.includes("top")) {
+    base.top = `${heart.y}px`;
+  } else {
+    base.bottom = `${heart.y}px`;
+  }
+
+  return base;
+}
+
+function heartAnimationClass(animation: string) {
+  switch (animation) {
+    case "burst":
+      return "animate-heart-burst";
+    case "spiral":
+      return "animate-heart-spiral";
+    case "side-float":
+      return "animate-heart-side-float";
+    case "confetti":
+      return "animate-heart-confetti";
+    default:
+      return "animate-float-heart";
+  }
+}
+
+function sampleAlertEvent(type: AlertType): AlertEvent {
   const base = {
-    id: `preview-${type}`,
+    id: `preview-${type}-${Date.now()}`,
     timestamp: Date.now(),
     userId: `tester_${type}`,
     username: `tester_${type}`,
@@ -247,7 +515,7 @@ function sampleAlertEvent(type: AlertType) {
       return {
         ...base,
         type
-      };
+      } as AlertEvent;
   }
 }
 

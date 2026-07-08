@@ -10,6 +10,8 @@ type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
 type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
 type AlertMediaType = "image" | "gif" | "webp";
 type AlertMediaPosition = "top" | "bottom" | "left" | "right";
+type AlertVisualMode = "template" | "custom";
+type AlertVisualTemplate = "gift-pop" | "neon-pop" | "minimal-toast" | "big-shoutout" | "goal-complete";
 type GoalType = "like" | "follow" | "gift" | "coin" | "share" | "custom";
 type GoalResetMode = "session" | "manual" | "persistent";
 
@@ -128,6 +130,8 @@ interface AlertConfig {
   enabled: boolean;
   playSound: boolean;
   ttsEnabled: boolean;
+  visualMode: AlertVisualMode;
+  visualTemplate: AlertVisualTemplate;
   template: string;
   soundUrl: string;
   mediaUrl: string;

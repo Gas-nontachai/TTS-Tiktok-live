@@ -9,6 +9,8 @@ type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
 export type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
 export type AlertMediaType = "image" | "gif" | "webp";
 export type AlertMediaPosition = "top" | "bottom" | "left" | "right";
+export type AlertVisualMode = "template" | "custom";
+export type AlertVisualTemplate = "gift-pop" | "neon-pop" | "minimal-toast" | "big-shoutout" | "goal-complete";
 export type GoalType = "like" | "follow" | "gift" | "coin" | "share" | "custom";
 export type GoalResetMode = "session" | "manual" | "persistent";
 
@@ -127,6 +129,8 @@ interface AlertConfig {
   enabled: boolean;
   playSound: boolean;
   ttsEnabled: boolean;
+  visualMode: AlertVisualMode;
+  visualTemplate: AlertVisualTemplate;
   template: string;
   soundUrl: string;
   mediaUrl: string;

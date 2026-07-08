@@ -16,6 +16,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      visualMode: "custom",
+      visualTemplate: "minimal-toast",
       template: "{likeCount} likes from {displayName}",
       soundUrl: "",
       mediaUrl: "",
@@ -38,6 +40,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      visualMode: "custom",
+      visualTemplate: "minimal-toast",
       template: "{displayName}: {message}",
       soundUrl: "",
       mediaUrl: "",
@@ -60,6 +64,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      visualMode: "template",
+      visualTemplate: "neon-pop",
       template: "{username} แชร์ไลฟ์แล้ว ขอบคุณมากครับ",
       soundUrl: "",
       mediaUrl: "",
@@ -82,6 +88,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      visualMode: "template",
+      visualTemplate: "big-shoutout",
       template: "ขอบคุณ {username} ที่กดติดตามครับ",
       soundUrl: "",
       mediaUrl: "",
@@ -104,6 +112,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      visualMode: "template",
+      visualTemplate: "gift-pop",
       template: "ขอบคุณ {username} สำหรับ {giftName} x{giftCount}",
       soundUrl: "",
       mediaUrl: "",
@@ -129,6 +139,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      visualMode: "template",
+      visualTemplate: "goal-complete",
       template: "{goalTitle} complete: {currentValue}/{targetValue}",
       soundUrl: "",
       mediaUrl: "",
@@ -307,6 +319,8 @@ const viewerAnimationSchema = z.enum(["none", "fade", "pulse", "count-pop"]);
 const soundPresetSchema = z.enum(["none", "chime", "pop", "sparkle", "coin", "soft-bell", "digital"]);
 const mediaTypeSchema = z.enum(["image", "gif", "webp"]);
 const mediaPositionSchema = z.enum(["top", "bottom", "left", "right"]);
+const alertVisualModeSchema = z.enum(["template", "custom"]);
+const alertVisualTemplateSchema = z.enum(["gift-pop", "neon-pop", "minimal-toast", "big-shoutout", "goal-complete"]);
 const goalTypeSchema = z.enum(["like", "follow", "gift", "coin", "share", "custom"]);
 const goalResetModeSchema = z.enum(["session", "manual", "persistent"]);
 const aiThaiVoiceSchema = z.enum(["th-TH-PremwadeeNeural", "th-TH-NiwatNeural"]);
@@ -314,6 +328,8 @@ const alertSchema = z.object({
   enabled: z.boolean(),
   playSound: z.boolean(),
   ttsEnabled: z.boolean(),
+  visualMode: alertVisualModeSchema,
+  visualTemplate: alertVisualTemplateSchema,
   template: z.string().min(1),
   soundUrl: z.string(),
   mediaUrl: z.string(),
@@ -507,30 +523,12 @@ function mergeConfig(raw: unknown): AppConfig {
     alerts: {
       ...defaultConfig.alerts,
       ...(existing.alerts as object | undefined),
-      like: {
-        ...defaultConfig.alerts.like,
-        ...((existing.alerts as { like?: object } | undefined)?.like ?? {})
-      },
-      comment: {
-        ...defaultConfig.alerts.comment,
-        ...((existing.alerts as { comment?: object } | undefined)?.comment ?? {})
-      },
-      share: {
-        ...defaultConfig.alerts.share,
-        ...((existing.alerts as { share?: object } | undefined)?.share ?? {})
-      },
-      follow: {
-        ...defaultConfig.alerts.follow,
-        ...((existing.alerts as { follow?: object } | undefined)?.follow ?? {})
-      },
-      gift: {
-        ...defaultConfig.alerts.gift,
-        ...((existing.alerts as { gift?: object } | undefined)?.gift ?? {})
-      },
-      goal: {
-        ...defaultConfig.alerts.goal,
-        ...((existing.alerts as { goal?: object } | undefined)?.goal ?? {})
-      }
+      like: mergeAlertConfig(defaultConfig.alerts.like, (existing.alerts as { like?: object } | undefined)?.like),
+      comment: mergeAlertConfig(defaultConfig.alerts.comment, (existing.alerts as { comment?: object } | undefined)?.comment),
+      share: mergeAlertConfig(defaultConfig.alerts.share, (existing.alerts as { share?: object } | undefined)?.share),
+      follow: mergeAlertConfig(defaultConfig.alerts.follow, (existing.alerts as { follow?: object } | undefined)?.follow),
+      gift: mergeAlertConfig(defaultConfig.alerts.gift, (existing.alerts as { gift?: object } | undefined)?.gift),
+      goal: mergeAlertConfig(defaultConfig.alerts.goal, (existing.alerts as { goal?: object } | undefined)?.goal)
     },
     alertQueue: {
       ...defaultConfig.alertQueue,
@@ -593,6 +591,23 @@ function mergeConfig(raw: unknown): AppConfig {
       }
     }
   }) as AppConfig;
+}
+
+function mergeAlertConfig<T extends AppConfig["alerts"][keyof AppConfig["alerts"]]>(defaults: T, raw: object | undefined): T {
+  if (!raw) {
+    return defaults;
+  }
+
+  const existing = raw as Partial<T> & { visualMode?: unknown; visualTemplate?: unknown };
+  const legacyVisualFallback = existing.visualMode === undefined
+    ? { visualMode: "custom" as const, visualTemplate: "minimal-toast" as const }
+    : {};
+
+  return {
+    ...defaults,
+    ...existing,
+    ...legacyVisualFallback
+  };
 }
 
 function normalizeAiThaiVoice(value: unknown): AppConfig["tts"]["aiThaiVoice"] {

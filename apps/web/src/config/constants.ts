@@ -1,10 +1,22 @@
-import type { AlertAnimationPreset, ChatAnimationPreset, SoundPreset } from "../types";
+import type { AlertAnimationPreset, AlertVisualTemplate, ChatAnimationPreset, SoundPreset } from "../types";
 
 export const alertAnimations: AlertAnimationPreset[] = ["fade", "slide-up", "slide-left", "pop", "bounce", "zoom", "flip", "glow-pulse"];
 export const chatAnimations: ChatAnimationPreset[] = ["none", "fade", "slide-up", "slide-left", "slide-right", "pop", "stack-pop", "soft-drop"];
 export const heartAnimations = ["float-up", "burst", "spiral", "side-float", "confetti"] as const;
 export const viewerAnimations = ["none", "fade", "pulse", "count-pop"] as const;
 export const soundPresets: SoundPreset[] = ["none", "chime", "pop", "sparkle", "coin", "soft-bell", "digital"];
+export const alertVisualTemplates: Array<{
+  id: AlertVisualTemplate;
+  label: string;
+  description: string;
+  emoji: string;
+}> = [
+  { id: "gift-pop", label: "Gift Pop", description: "ของขวัญเด้งใหญ่ตรงกลางพร้อม badge จำนวน", emoji: "🎁" },
+  { id: "neon-pop", label: "Neon Pop", description: "arcade neon burst ข้อความกลางจอพร้อม glow", emoji: "✨" },
+  { id: "minimal-toast", label: "Minimal Toast", description: "toast เรียบแบบเดียวสำหรับคนอยากไม่บังจอ", emoji: "🔔" },
+  { id: "big-shoutout", label: "Big Shoutout", description: "banner shoutout กว้าง ชื่อคนเด่นมาก", emoji: "🎉" },
+  { id: "goal-complete", label: "Goal Complete", description: "achievement style พร้อม trophy และ progress", emoji: "🏆" }
+];
 
 export const overlayMainUrl = "http://localhost:3000/overlay/main";
 export const overlayAlertsUrl = "http://localhost:3000/overlay/alerts";

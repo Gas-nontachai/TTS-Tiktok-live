@@ -5,10 +5,11 @@ import { useSpeechQueue } from "../../hooks/useSpeechQueue";
 import { useAlertQueue } from "../../hooks/useAlertQueue";
 import { Button, CopyRow, Metric } from "../../components/ui";
 import { Avatar } from "../../components";
+import { AlertRenderer } from "../../components/alerts/AlertRenderer";
 import type { AlertEvent, ChatMessageEvent, GoalConfig } from "../../types";
 import { ttsPlayerUrl } from "../../config/constants";
 import { cn } from "../../lib/utils";
-import { chatBoxStyle, filterChat, renderTemplate, trimMessages, typeLabel } from "../../utils/helpers";
+import { chatBoxStyle, filterChat, trimMessages } from "../../utils/helpers";
 
 const obsOverlayClass = "pointer-events-none relative h-screen w-screen overflow-hidden bg-transparent font-sans";
 
@@ -97,59 +98,6 @@ function heartPositionStyle(position: string, heart: HeartParticle): CSSProperti
   return base;
 }
 
-function alertAnimationClass(animation: string) {
-  switch (animation) {
-    case "none":
-      return "";
-    case "pop":
-      return "animate-alert-pop";
-    case "bounce":
-      return "animate-alert-bounce";
-    case "zoom":
-      return "animate-alert-zoom";
-    case "flip":
-      return "animate-alert-flip";
-    case "slide-up":
-      return "animate-slide-up";
-    case "slide-left":
-      return "animate-slide-left";
-    case "slide-right":
-      return "animate-slide-right";
-    case "glow-pulse":
-      return "animate-alert-glow-pulse";
-    case "fade":
-      return "animate-fade-in";
-    default:
-      return "animate-alert-pop";
-  }
-}
-
-function alertStyleClass(style: string) {
-  switch (style) {
-    case "neon":
-      return "border-[#79e0d4]/75 bg-[#071512]/85 shadow-[0_0_28px_rgba(121,224,212,0.45)]";
-    case "solid":
-      return "border-[#52684d] bg-[#52684d]";
-    case "minimal":
-      return "border-white/25 bg-black/45 shadow-[0_14px_40px_rgba(0,0,0,0.25)]";
-    default:
-      return "border-white/25 bg-black/55 backdrop-blur-md";
-  }
-}
-
-function mediaPositionClass(position: string) {
-  switch (position) {
-    case "right":
-      return "flex-row-reverse items-center";
-    case "top":
-      return "flex-col items-center text-center";
-    case "bottom":
-      return "flex-col-reverse items-center text-center";
-    default:
-      return "flex-row items-center";
-  }
-}
-
 function chatAnimationClass(animation: string) {
   switch (animation) {
     case "pop":
@@ -205,7 +153,7 @@ export function MainOverlay() {
           {config.viewerCount.label} {stats.viewerCount}
         </div>
       ) : null}
-      {current ? <AlertCard event={current} /> : null}
+      {current ? <AlertRenderer event={current} alertConfig={config.alerts[current.type]} position={config.overlay.alertPosition} /> : null}
       {hearts.map((heart) => (
         <span
           key={heart.id}
@@ -237,39 +185,7 @@ function AlertsLayer() {
     return null;
   }
 
-  return <AlertCard event={current} />;
-}
-
-function AlertCard({ event }: { event: AlertEvent }) {
-  const config = useAppStore((state) => state.config);
-  const alertConfig = config.alerts[event.type];
-
-  return (
-    <div
-      key={`${event.id}-${alertConfig.enterAnimation}-${alertConfig.animationDurationMs}`}
-      className={cn(
-        "absolute z-10 flex max-w-[min(620px,86vw)] transform-gpu gap-3 rounded-lg border px-5 py-4 text-white shadow-[0_20px_55px_rgba(0,0,0,0.35)] [overflow-wrap:anywhere] will-change-transform",
-        overlayPositionClass(config.overlay.alertPosition),
-        mediaPositionClass(alertConfig.mediaPosition),
-        alertAnimationClass(alertConfig.enterAnimation),
-        alertStyleClass(alertConfig.stylePreset)
-      )}
-      style={{ animationDuration: `${alertConfig.animationDurationMs}ms` }}
-    >
-      {alertConfig.mediaUrl ? (
-        <img
-          src={alertConfig.mediaUrl}
-          alt=""
-          className="shrink-0 rounded-lg object-contain"
-          style={{ width: alertConfig.mediaSize, height: alertConfig.mediaSize }}
-        />
-      ) : null}
-      <div className="grid min-w-0 gap-1">
-        <strong className="text-sm uppercase tracking-[0.08em] text-white/80">{typeLabel(event.type)}</strong>
-        <span className="text-2xl font-black leading-tight">{renderTemplate(alertConfig.template, event)}</span>
-      </div>
-    </div>
-  );
+  return <AlertRenderer event={current} alertConfig={config.alerts[current.type]} position={config.overlay.alertPosition} />;
 }
 
 export function ViewerCountOverlay() {
