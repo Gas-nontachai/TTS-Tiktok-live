@@ -32,3 +32,4 @@ export const quietClass = "text-sm text-textMuted";
 export const metricPanelClass = "grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4";
 export const buttonRowClass = "flex flex-wrap items-center gap-2.5";
 export const formGridClass = "grid grid-cols-1 gap-3 lg:grid-cols-3 lg:items-end";
+export const transparentPreviewClass = "bg-[length:24px_24px] bg-[repeating-conic-gradient(#d6d6d6_0_25%,#ffffff_0_50%)]";

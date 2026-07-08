@@ -6,7 +6,7 @@ import { AlertRenderer } from "../components/alerts/AlertRenderer";
 import { saveConfig, testAlert, testChatMessage, uploadMedia } from "../services/api";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
 import type { AlertAnimationPreset, AlertEvent, AlertMediaPosition, AlertMediaType, AlertType, AlertVisualMode, AlertVisualTemplate, AppConfig, SoundPreset } from "../types";
-import { alertAnimations, alertVisualTemplates, buttonRowClass, chatAnimations, formGridClass, heartAnimations, panelClass, soundPresets, viewerAnimations } from "../config/constants";
+import { alertAnimations, alertVisualTemplates, buttonRowClass, chatAnimations, formGridClass, heartAnimations, panelClass, soundPresets, transparentPreviewClass, viewerAnimations } from "../config/constants";
 import { playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
 
 const alertTypes: AlertType[] = ["follow", "share", "gift", "goal"];
@@ -15,6 +15,7 @@ const mediaPositions: AlertMediaPosition[] = ["left", "right", "top", "bottom"];
 const mediaTypes: AlertMediaType[] = ["image", "gif", "webp"];
 type AlertConfigValue = AppConfig["alerts"][keyof AppConfig["alerts"]];
 type PreviewTarget = AlertType | "viewer-count";
+type PreviewBackgroundId = "transparent" | "dark" | "light" | "live" | "warm";
 type PreviewHeart = {
   id: string;
   x: number;
@@ -23,6 +24,14 @@ type PreviewHeart = {
   duration: number;
   delay: number;
 };
+
+const previewBackgrounds: Array<{ id: PreviewBackgroundId; label: string; className: string }> = [
+  { id: "transparent", label: "Transparent", className: transparentPreviewClass },
+  { id: "dark", label: "Dark", className: "bg-[#111318]" },
+  { id: "light", label: "Light", className: "bg-[#f7f3ea]" },
+  { id: "live", label: "Live", className: "bg-[radial-gradient(circle_at_25%_20%,#5e1b4f_0,#251931_36%,#101219_78%)]" },
+  { id: "warm", label: "Warm", className: "bg-[linear-gradient(135deg,#ffb86b,#7c2d12_48%,#111827)]" }
+];
 
 function LikeHeartsConfig() {
   const config = useAppStore((state) => state.config);
@@ -301,7 +310,7 @@ function TemplateGallery({
             onClick={() => onSelect(template.id)}
             className={`grid min-h-[15rem] gap-3 rounded-lg border p-3 text-left transition hover:-translate-y-0.5 ${isSelected ? "border-sage bg-[#eef6ef] shadow-[0_10px_28px_rgba(82,104,77,0.16)]" : "border-surfaceMuted bg-white hover:border-sage/60"}`}
           >
-            <div className="relative h-40 overflow-hidden rounded-md bg-[radial-gradient(circle_at_center,#263026,#111_70%)]">
+            <div className={`relative h-40 overflow-hidden rounded-md ${transparentPreviewClass}`}>
               <AlertRenderer event={sampleAlertEvent(template.id === "goal-complete" ? "goal" : template.id === "big-shoutout" || template.id === "neon-pop" ? "follow" : "gift")} alertConfig={previewConfig} position="bottom-left" />
             </div>
             <div className="grid gap-1">
@@ -319,8 +328,10 @@ function TemplateGallery({
 function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: PreviewTarget; onClose: () => void }) {
   const config = useAppStore((state) => state.config);
   const [ratio, setRatio] = useState<"16:9" | "9:16">("16:9");
+  const [backgroundId, setBackgroundId] = useState<PreviewBackgroundId>("transparent");
   const previewEvent = target === "viewer-count" || target === "like" ? null : sampleAlertEvent(target);
   const alertConfig = previewEvent ? config.alerts[previewEvent.type] : null;
+  const previewBackground = previewBackgrounds.find((background) => background.id === backgroundId) ?? previewBackgrounds[0];
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -355,10 +366,15 @@ function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: P
                 {nextRatio}
               </Button>
             ))}
+            {previewBackgrounds.map((background) => (
+              <Button key={background.id} type="button" variant={backgroundId === background.id ? "primary" : "secondary"} onClick={() => setBackgroundId(background.id)}>
+                {background.label}
+              </Button>
+            ))}
             <Button type="button" variant="secondary" onClick={onClose}>Close</Button>
           </div>
         </div>
-        <div className="grid place-items-center rounded-lg bg-[#141713] p-3">
+        <div className={`grid place-items-center rounded-lg p-3 ${previewBackground.className}`}>
           <div className={`relative w-full overflow-hidden rounded-md bg-transparent ${ratio === "16:9" ? "aspect-video max-w-5xl" : "aspect-[9/16] max-h-[70vh] max-w-sm"}`}>
             {previewEvent && alertConfig ? (
               <AlertRenderer key={`${previewEvent.id}-${ratio}`} event={previewEvent} alertConfig={alertConfig} position={config.overlay.alertPosition} />

@@ -226,6 +226,7 @@ export const defaultConfig: AppConfig = {
       type: "like",
       currentValue: 0,
       targetValue: 10000,
+      visualTemplate: "event-bar",
       enabled: false,
       isPaused: false,
       resetMode: "session",
@@ -238,6 +239,7 @@ export const defaultConfig: AppConfig = {
       type: "follow",
       currentValue: 0,
       targetValue: 100,
+      visualTemplate: "event-bar",
       enabled: false,
       isPaused: false,
       resetMode: "session",
@@ -323,6 +325,7 @@ const alertVisualModeSchema = z.enum(["template", "custom"]);
 const alertVisualTemplateSchema = z.enum(["gift-pop", "neon-pop", "minimal-toast", "big-shoutout", "goal-complete"]);
 const goalTypeSchema = z.enum(["like", "follow", "gift", "coin", "share", "custom"]);
 const goalResetModeSchema = z.enum(["session", "manual", "persistent"]);
+const goalVisualTemplateSchema = z.enum(["event-bar", "neon-slab", "quest-meter", "score-strip"]);
 const aiThaiVoiceSchema = z.enum(["th-TH-PremwadeeNeural", "th-TH-NiwatNeural"]);
 const alertSchema = z.object({
   enabled: z.boolean(),
@@ -354,6 +357,7 @@ const goalSchema = z.object({
   type: goalTypeSchema,
   currentValue: z.number().min(0),
   targetValue: z.number().min(1),
+  visualTemplate: goalVisualTemplateSchema,
   enabled: z.boolean(),
   isPaused: z.boolean(),
   resetMode: goalResetModeSchema,

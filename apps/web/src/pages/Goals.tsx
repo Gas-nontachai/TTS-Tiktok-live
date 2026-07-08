@@ -3,11 +3,18 @@ import { Heart, Plus, Trash2, UserPlus } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
 import { Button, NumberInput, SelectInput, TextInput, Toggle, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
 import { resetGoal, saveConfig, testGoalProgress } from "../services/api";
-import type { GoalResetMode, GoalType } from "../types";
-import { buttonRowClass, formGridClass, panelClass } from "../config/constants";
+import type { GoalResetMode, GoalType, GoalVisualTemplate } from "../types";
+import { buttonRowClass, formGridClass, panelClass, transparentPreviewClass } from "../config/constants";
+import { GoalWidget } from "./overlays/OverlayPages";
 
 const goalTypes: GoalType[] = ["like", "follow"];
 const resetModes: GoalResetMode[] = ["session", "manual", "persistent"];
+const goalVisualTemplates: Array<{ id: GoalVisualTemplate; label: string }> = [
+  { id: "event-bar", label: "Event bar" },
+  { id: "neon-slab", label: "Neon slab" },
+  { id: "quest-meter", label: "Quest meter" },
+  { id: "score-strip", label: "Score strip" }
+];
 
 const goalPresets: Record<"like" | "follow", { title: string; targetValue: number }> = {
   like: {
@@ -57,6 +64,7 @@ export function GoalsPage() {
         type,
         currentValue: 0,
         targetValue: preset.targetValue,
+        visualTemplate: "event-bar",
         enabled: true,
         isPaused: false,
         resetMode: "session",
@@ -105,6 +113,40 @@ export function GoalsPage() {
                     <p>{percent}% complete</p>
                   </div>
                   <TextInput label="Title" value={goal.title} onChange={(title) => updateGoal(goal.id, { title })} />
+                  <div className="grid gap-3">
+                    <div className={`overflow-hidden rounded-md border border-surfaceMuted p-6 ${transparentPreviewClass}`}>
+                      <GoalWidget goal={{ ...goal, enabled: true, visualTemplate: goal.visualTemplate ?? "event-bar" }} />
+                    </div>
+                    <div className="grid gap-2">
+                      <span className="text-sm font-semibold text-text">Overlay template</span>
+                      <div className="grid grid-cols-1 gap-2 xl:grid-cols-4">
+                        {goalVisualTemplates.map((template) => {
+                          const selected = (goal.visualTemplate ?? "event-bar") === template.id;
+                          const previewGoal = {
+                            ...goal,
+                            title: goal.title || template.label,
+                            currentValue: goal.currentValue || Math.round(goal.targetValue * 0.48),
+                            visualTemplate: template.id
+                          };
+                          return (
+                            <button
+                              key={template.id}
+                              type="button"
+                              onClick={() => updateGoal(goal.id, { visualTemplate: template.id })}
+                              className={`grid min-h-[116px] overflow-hidden rounded-md border p-2 text-left transition ${transparentPreviewClass} ${selected ? "border-sage ring-2 ring-sage/25" : "border-surfaceMuted hover:border-sage/60"}`}
+                            >
+                              <span className="text-xs font-black uppercase text-white/75">{template.label}</span>
+                              <div className="h-[72px] overflow-hidden">
+                                <div className="w-[720px] scale-[0.46] [transform-origin:left_top] sm:scale-[0.56] xl:scale-[0.42]">
+                                  <GoalWidget goal={previewGoal} />
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                   <div className={formGridClass}>
                     <SelectInput label="Goal type" value={goal.type} options={goalTypes} onChange={(type) => updateGoal(goal.id, { type: type as GoalType })} />
                     <NumberInput label="Current" value={goal.currentValue} onChange={(currentValue) => updateGoal(goal.id, { currentValue, completed: currentValue >= goal.targetValue })} />
