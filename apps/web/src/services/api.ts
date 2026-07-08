@@ -1,4 +1,4 @@
-import type { AlertType, AiThaiTtsPreflight, AppConfig, AppStats, ChatConfig, DeepPartial, GoalState, LogEntry, TikTokStatus } from "../types";
+import type { AlertType, AiThaiTtsPreflight, AppConfig, AppStats, DeepPartial, GoalState, LogEntry, TikTokStatus } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
 
@@ -107,17 +107,6 @@ export function uploadMedia(file: File) {
       }
     };
     reader.readAsDataURL(file);
-  });
-}
-
-export function getChatConfig() {
-  return request<ChatConfig>("/api/chat/config");
-}
-
-export function saveChatConfig(config: DeepPartial<ChatConfig>) {
-  return request<ChatConfig>("/api/chat/config", {
-    method: "PUT",
-    body: JSON.stringify(config)
   });
 }
 

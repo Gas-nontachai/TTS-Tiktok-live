@@ -1,17 +1,17 @@
-export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
+type ConnectionStatus = "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 
-export type AlertType = "like" | "comment" | "follow" | "share" | "gift" | "goal";
-export type OverlayEventType = AlertType | "viewer_count" | "chat_message" | "system";
-export type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
-export type AlertAnimationPreset = "fade" | "slide-up" | "slide-left" | "pop" | "bounce" | "zoom" | "flip" | "glow-pulse";
-export type ChatAnimationPreset = "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "pop" | "stack-pop" | "soft-drop";
-export type HeartAnimationPreset = "float-up" | "burst" | "spiral" | "side-float" | "confetti";
-export type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
-export type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
-export type AlertMediaType = "image" | "gif" | "webp";
-export type AlertMediaPosition = "top" | "bottom" | "left" | "right";
-export type GoalType = "like" | "follow" | "gift" | "coin" | "share" | "custom";
-export type GoalResetMode = "session" | "manual" | "persistent";
+type AlertType = "like" | "comment" | "follow" | "share" | "gift" | "goal";
+type OverlayEventType = AlertType | "viewer_count" | "chat_message" | "system";
+type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type AlertAnimationPreset = "fade" | "slide-up" | "slide-left" | "pop" | "bounce" | "zoom" | "flip" | "glow-pulse";
+type ChatAnimationPreset = "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "pop" | "stack-pop" | "soft-drop";
+type HeartAnimationPreset = "float-up" | "burst" | "spiral" | "side-float" | "confetti";
+type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
+type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
+type AlertMediaType = "image" | "gif" | "webp";
+type AlertMediaPosition = "top" | "bottom" | "left" | "right";
+type GoalType = "like" | "follow" | "gift" | "coin" | "share" | "custom";
+type GoalResetMode = "session" | "manual" | "persistent";
 
 export interface TikTokStatus {
   status: ConnectionStatus;
@@ -19,13 +19,13 @@ export interface TikTokStatus {
   roomId: string;
 }
 
-export interface BaseOverlayEvent {
+interface BaseOverlayEvent {
   id: string;
   type: OverlayEventType;
   timestamp: number;
 }
 
-export interface UserEventFields {
+interface UserEventFields {
   userId?: string;
   username: string;
   displayName?: string;
@@ -60,7 +60,7 @@ export interface LikeEvent extends BaseOverlayEvent, Partial<UserEventFields> {
   totalLikeCount?: number;
 }
 
-export interface CommentAlertEvent extends BaseOverlayEvent, UserEventFields {
+interface CommentAlertEvent extends BaseOverlayEvent, UserEventFields {
   type: "comment";
   message: string;
 }
@@ -82,16 +82,16 @@ export interface ChatMessageEvent extends BaseOverlayEvent, UserEventFields {
   metadata?: Record<string, unknown>;
 }
 
-export interface SystemEvent extends BaseOverlayEvent {
+interface SystemEvent extends BaseOverlayEvent {
   type: "system";
   message?: string;
 }
 
-export type AlertEvent = ShareAlertEvent | FollowAlertEvent | GiftAlertEvent | LikeEvent | CommentAlertEvent | GoalAlertEvent;
+type AlertEvent = ShareAlertEvent | FollowAlertEvent | GiftAlertEvent | LikeEvent | CommentAlertEvent | GoalAlertEvent;
 export type OverlayEvent = AlertEvent | ViewerCountEvent | LikeEvent | ChatMessageEvent | SystemEvent;
 
-export type LogLevel = "info" | "warn" | "error";
-export type LogType =
+type LogLevel = "info" | "warn" | "error";
+type LogType =
   | "raw_event"
   | "normalized_event"
   | "raw_chat"
@@ -112,18 +112,18 @@ export interface LogEntry {
   metadata?: Record<string, unknown>;
 }
 
-export interface AiThaiTtsCheck {
+interface AiThaiTtsCheck {
   name: string;
   ok: boolean;
   message: string;
 }
 
-export interface AiThaiTtsPreflight {
+interface AiThaiTtsPreflight {
   ready: boolean;
   checks: AiThaiTtsCheck[];
 }
 
-export interface AlertConfig {
+interface AlertConfig {
   enabled: boolean;
   playSound: boolean;
   ttsEnabled: boolean;
@@ -146,19 +146,19 @@ export interface AlertConfig {
   minimumTriggerCount: number;
 }
 
-export interface GiftAlertConfig extends AlertConfig {
+interface GiftAlertConfig extends AlertConfig {
   minGiftCount: number;
   minDiamondCount: number;
   waitForRepeatEnd: boolean;
 }
 
-export interface AlertQueueConfig {
+interface AlertQueueConfig {
   maxQueueSize: number;
   allowGiftInterrupt: boolean;
   clearQueueOnDisconnect: boolean;
 }
 
-export interface ViewerCountConfig {
+interface ViewerCountConfig {
   enabled: boolean;
   position: Position;
   showIcon: boolean;
@@ -167,7 +167,7 @@ export interface ViewerCountConfig {
   animationPreset: ViewerAnimationPreset;
 }
 
-export interface LikeHeartConfig {
+interface LikeHeartConfig {
   enabled: boolean;
   maxHeartsOnScreen: number;
   heartSize: number;
@@ -177,7 +177,7 @@ export interface LikeHeartConfig {
   animationPreset: HeartAnimationPreset;
 }
 
-export interface TtsConfig {
+interface TtsConfig {
   enabled: boolean;
   playerEnabled: boolean;
   speakAlerts: boolean;
@@ -197,7 +197,7 @@ export interface TtsConfig {
   template: string;
 }
 
-export interface SoundConfig {
+interface SoundConfig {
   enabled: boolean;
   masterVolume: number;
   shareVolume: number;
@@ -208,7 +208,7 @@ export interface SoundConfig {
   giftPreset: SoundPreset;
 }
 
-export interface OverlayConfig {
+interface OverlayConfig {
   showAlerts: boolean;
   showViewerCount: boolean;
   showHearts: boolean;
@@ -230,9 +230,9 @@ export interface GoalConfig {
   completed: boolean;
 }
 
-export type GoalState = GoalConfig;
+type GoalState = GoalConfig;
 
-export interface ChatConfig {
+interface ChatConfig {
   enabled: boolean;
   overlayUrl: string;
   display: {

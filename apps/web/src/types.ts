@@ -1,11 +1,11 @@
-export type ConnectionStatus = "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
+type ConnectionStatus = "disconnected" | "connecting" | "connected" | "reconnecting" | "error";
 export type AlertType = "like" | "comment" | "follow" | "share" | "gift" | "goal";
-export type OverlayEventType = AlertType | "viewer_count" | "chat_message" | "system";
-export type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+type OverlayEventType = AlertType | "viewer_count" | "chat_message" | "system";
+type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type AlertAnimationPreset = "fade" | "slide-up" | "slide-left" | "pop" | "bounce" | "zoom" | "flip" | "glow-pulse";
 export type ChatAnimationPreset = "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "pop" | "stack-pop" | "soft-drop";
-export type HeartAnimationPreset = "float-up" | "burst" | "spiral" | "side-float" | "confetti";
-export type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
+type HeartAnimationPreset = "float-up" | "burst" | "spiral" | "side-float" | "confetti";
+type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
 export type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
 export type AlertMediaType = "image" | "gif" | "webp";
 export type AlertMediaPosition = "top" | "bottom" | "left" | "right";
@@ -18,7 +18,7 @@ export interface TikTokStatus {
   roomId: string;
 }
 
-export interface BaseOverlayEvent {
+interface BaseOverlayEvent {
   id: string;
   type: OverlayEventType;
   timestamp: number;
@@ -31,11 +31,11 @@ export interface UserEventFields {
   profilePictureUrl?: string;
 }
 
-export interface ShareAlertEvent extends BaseOverlayEvent, UserEventFields {
+interface ShareAlertEvent extends BaseOverlayEvent, UserEventFields {
   type: "share";
 }
 
-export interface FollowAlertEvent extends BaseOverlayEvent, UserEventFields {
+interface FollowAlertEvent extends BaseOverlayEvent, UserEventFields {
   type: "follow";
 }
 
@@ -48,7 +48,7 @@ export interface GiftAlertEvent extends BaseOverlayEvent, UserEventFields {
   repeatEnd?: boolean;
 }
 
-export interface ViewerCountEvent extends BaseOverlayEvent {
+interface ViewerCountEvent extends BaseOverlayEvent {
   type: "viewer_count";
   viewerCount: number;
 }
@@ -59,12 +59,12 @@ export interface LikeEvent extends BaseOverlayEvent, Partial<UserEventFields> {
   totalLikeCount?: number;
 }
 
-export interface CommentAlertEvent extends BaseOverlayEvent, UserEventFields {
+interface CommentAlertEvent extends BaseOverlayEvent, UserEventFields {
   type: "comment";
   message: string;
 }
 
-export interface GoalAlertEvent extends BaseOverlayEvent {
+interface GoalAlertEvent extends BaseOverlayEvent {
   type: "goal";
   goalId: string;
   goalTitle: string;
@@ -81,7 +81,7 @@ export interface ChatMessageEvent extends BaseOverlayEvent, UserEventFields {
   metadata?: Record<string, unknown>;
 }
 
-export interface SystemEvent extends BaseOverlayEvent {
+interface SystemEvent extends BaseOverlayEvent {
   type: "system";
   message?: string;
 }
@@ -89,8 +89,8 @@ export interface SystemEvent extends BaseOverlayEvent {
 export type AlertEvent = ShareAlertEvent | FollowAlertEvent | GiftAlertEvent | LikeEvent | CommentAlertEvent | GoalAlertEvent;
 export type OverlayEvent = AlertEvent | ViewerCountEvent | LikeEvent | ChatMessageEvent | SystemEvent;
 
-export type LogLevel = "info" | "warn" | "error";
-export type LogType =
+type LogLevel = "info" | "warn" | "error";
+type LogType =
   | "raw_event"
   | "normalized_event"
   | "raw_chat"
@@ -111,7 +111,7 @@ export interface LogEntry {
   metadata?: Record<string, unknown>;
 }
 
-export interface AiThaiTtsCheck {
+interface AiThaiTtsCheck {
   name: string;
   ok: boolean;
   message: string;
@@ -122,7 +122,7 @@ export interface AiThaiTtsPreflight {
   checks: AiThaiTtsCheck[];
 }
 
-export interface AlertConfig {
+interface AlertConfig {
   enabled: boolean;
   playSound: boolean;
   ttsEnabled: boolean;
@@ -145,13 +145,13 @@ export interface AlertConfig {
   minimumTriggerCount: number;
 }
 
-export interface GiftAlertConfig extends AlertConfig {
+interface GiftAlertConfig extends AlertConfig {
   minGiftCount: number;
   minDiamondCount: number;
   waitForRepeatEnd: boolean;
 }
 
-export interface ChatConfig {
+interface ChatConfig {
   enabled: boolean;
   overlayUrl: string;
   display: {
@@ -315,7 +315,7 @@ export interface AppStats {
   visibleChatCount: number;
 }
 
-export type ChatControlAction = "clear" | "pause" | "resume";
+type ChatControlAction = "clear" | "pause" | "resume";
 
 export type WsEvent =
   | { type: "config_updated"; payload: AppConfig }

@@ -184,5 +184,3 @@ export function RangeInput({
     </FormField>
   );
 }
-
-export { Input, Textarea };

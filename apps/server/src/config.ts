@@ -345,7 +345,7 @@ const goalSchema = z.object({
   completed: z.boolean()
 });
 
-export const configSchema = z.object({
+const configSchema = z.object({
   tiktok: z.object({
     username: z.string().trim().default("")
   }),

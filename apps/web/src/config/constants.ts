@@ -1,6 +1,5 @@
 import type { AlertAnimationPreset, ChatAnimationPreset, SoundPreset } from "../types";
 
-export const languages = ["th-TH", "en-US", "ja-JP", "ko-KR", "zh-CN"];
 export const alertAnimations: AlertAnimationPreset[] = ["fade", "slide-up", "slide-left", "pop", "bounce", "zoom", "flip", "glow-pulse"];
 export const chatAnimations: ChatAnimationPreset[] = ["none", "fade", "slide-up", "slide-left", "slide-right", "pop", "stack-pop", "soft-drop"];
 export const heartAnimations = ["float-up", "burst", "spiral", "side-float", "confetti"] as const;

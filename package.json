@@ -9,10 +9,11 @@
     "dev:server": "npm run dev -w apps/server",
     "dev:web": "npm run dev -w apps/web",
     "build": "npm run build -w apps/server && npm run build -w apps/web",
-    "start": "npm run start -w apps/server"
+    "start": "npm run start -w apps/server",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.0.0",
+    "husky": "^9.1.7"
   }
 }
-

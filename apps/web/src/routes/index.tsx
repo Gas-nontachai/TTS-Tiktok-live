@@ -20,42 +20,6 @@ import {
   ViewerCountOverlay
 } from "../pages/overlays/OverlayPages";
 
-export const knownRoutes = new Set([
-  "/dashboard",
-  "/connection",
-  "/alerts",
-  "/goals",
-  "/chat",
-  "/overlay",
-  "/tts",
-  "/sounds",
-  "/logs",
-  "/settings"
-]);
-
-export const overlayRoutes = new Set([
-  "/overlay/main",
-  "/overlay/alerts",
-  "/overlay/goals",
-  "/overlay/viewer-count",
-  "/overlay/hearts",
-  "/overlay/chat",
-  "/overlay/tts"
-]);
-
-export const playerRoutes = new Set([
-  "/player/tts"
-]);
-
-export type RouteType = "page" | "overlay" | "player";
-
-export function getRouteType(path: string): RouteType | null {
-  if (overlayRoutes.has(path)) return "overlay";
-  if (playerRoutes.has(path)) return "player";
-  if (knownRoutes.has(path)) return "page";
-  return null;
-}
-
 export function normalizePath(pathname: string) {
   return pathname === "/" ? "/dashboard" : pathname;
 }

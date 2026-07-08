@@ -1,5 +1,3 @@
-import * as React from "react";
-import * as SwitchPrimitive from "@radix-ui/react-switch";
 import { cn } from "../../lib/utils";
 
 type ToggleProps = {
@@ -48,22 +46,5 @@ export default function Toggle({
         </span>
       </button>
     </div>
-  );
-}
-
-export function Switch({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof SwitchPrimitive.Root>) {
-  return (
-    <SwitchPrimitive.Root
-      className={cn(
-        "relative h-6 w-11 shrink-0 rounded-full bg-surfaceMuted transition focus:outline-none focus:ring-2 focus:ring-sage/30 data-[state=checked]:bg-sage",
-        className
-      )}
-      {...props}
-    >
-      <SwitchPrimitive.Thumb className="block h-5 w-5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0" />
-    </SwitchPrimitive.Root>
   );
 }
