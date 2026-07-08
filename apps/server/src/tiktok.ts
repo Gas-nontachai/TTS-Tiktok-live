@@ -17,7 +17,13 @@ type StatusHandler = (status: TikTokStatus) => void;
 type ErrorHandler = (message: string) => void;
 type LogHandler = (entry: LogEntry) => void;
 
-const giftDuplicateTtlMs = 30000;
+const giftDuplicateTtlMs = 3000;
+const giftStreakIdleMs = 1500;
+
+type PendingGiftStreak = {
+  event: GiftAlertEvent;
+  timer?: ReturnType<typeof setTimeout>;
+};
 
 interface TikTokConnectionLike {
   connect: () => Promise<{ roomId?: string | number }>;
@@ -28,6 +34,7 @@ interface TikTokConnectionLike {
 export class TikTokLiveService {
   private connection?: TikTokConnectionLike;
   private recentGiftKeys: Record<string, number> = {};
+  private pendingGiftStreaks: Record<string, PendingGiftStreak> = {};
   private status: TikTokStatus = {
     status: "disconnected",
     username: "",
@@ -62,6 +69,7 @@ export class TikTokLiveService {
     }) as unknown as TikTokConnectionLike;
     this.connection = connection;
     this.recentGiftKeys = {};
+    this.clearPendingGiftStreaks();
 
     const isActiveConnection = () => this.connection === connection;
     const emitIfActive = (type: string, mapper: (data: unknown) => OverlayEvent) => (data: unknown) => {
@@ -93,6 +101,7 @@ export class TikTokLiveService {
         return;
       }
       this.connection = undefined;
+      this.clearPendingGiftStreaks();
       this.setStatus({
         status: "disconnected",
         username: this.status.username,
@@ -105,6 +114,7 @@ export class TikTokLiveService {
         return;
       }
       this.connection = undefined;
+      this.clearPendingGiftStreaks();
       this.setStatus({
         status: "disconnected",
         username: this.status.username,
@@ -130,6 +140,7 @@ export class TikTokLiveService {
     } catch (error) {
       const message = this.getErrorMessage(error);
       this.connection = undefined;
+      this.clearPendingGiftStreaks();
       this.setStatus({ status: "error", username: cleanUsername, roomId: "" });
       this.log("error", "error", message, error);
       this.onError(message);
@@ -144,6 +155,7 @@ export class TikTokLiveService {
       await connection.disconnect();
     }
     this.recentGiftKeys = {};
+    this.clearPendingGiftStreaks();
 
     this.setStatus({ status: "disconnected", username: this.status.username, roomId: "" }, announce);
     if (announce) {
@@ -153,13 +165,86 @@ export class TikTokLiveService {
 
   private emitMapped(type: string, event: OverlayEvent, raw: unknown) {
     this.log("info", "raw_event", `Raw ${type} event received`, raw);
-    if (event.type === "gift" && !this.claimGiftEvent(event)) {
+    if (event.type === "gift") {
+      this.queueGiftEvent(event);
+      return;
+    }
+
+    this.emitNormalizedEvent(type, event);
+  }
+
+  private emitNormalizedEvent(type: string, event: OverlayEvent) {
+    this.log("info", "normalized_event", `Normalized ${type} event`, event);
+    this.onEvent(event);
+  }
+
+  private queueGiftEvent(event: GiftAlertEvent) {
+    if (event.giftType !== undefined && event.giftType !== 1) {
+      this.flushGiftEvent(event, false);
+      return;
+    }
+
+    const key = this.giftStreakKey(event);
+    const pending = this.pendingGiftStreaks[key];
+    const nextEvent = this.mergeGiftEvent(pending?.event, event);
+
+    if (pending?.timer) {
+      clearTimeout(pending.timer);
+    }
+
+    if (event.repeatEnd === true) {
+      delete this.pendingGiftStreaks[key];
+      this.flushGiftEvent(nextEvent);
+      return;
+    }
+
+    this.pendingGiftStreaks[key] = {
+      event: nextEvent,
+      timer: setTimeout(() => {
+        const latest = this.pendingGiftStreaks[key];
+        if (!latest) {
+          return;
+        }
+        delete this.pendingGiftStreaks[key];
+        this.flushGiftEvent(latest.event);
+      }, giftStreakIdleMs)
+    };
+
+    this.log("info", "normalized_event", "Queued gift streak event", nextEvent);
+  }
+
+  private flushGiftEvent(event: GiftAlertEvent, dedupe = true) {
+    if (dedupe && !this.claimGiftEvent(event)) {
       this.log("info", "normalized_event", "Skipped duplicate gift event", event);
       return;
     }
 
-    this.log("info", "normalized_event", `Normalized ${type} event`, event);
-    this.onEvent(event);
+    this.emitNormalizedEvent("gift", event);
+  }
+
+  private mergeGiftEvent(current: GiftAlertEvent | undefined, next: GiftAlertEvent): GiftAlertEvent {
+    if (!current) {
+      return next;
+    }
+
+    const giftCount = Math.max(current.giftCount || 1, next.giftCount || 1);
+    return {
+      ...current,
+      ...next,
+      id: next.id,
+      timestamp: next.timestamp,
+      giftCount,
+      repeatEnd: next.repeatEnd
+    };
+  }
+
+  private clearPendingGiftStreaks() {
+    Object.values(this.pendingGiftStreaks).forEach((pending) => {
+      if (pending.timer) {
+        clearTimeout(pending.timer);
+      }
+    });
+    this.pendingGiftStreaks = {};
   }
 
   private claimGiftEvent(event: GiftAlertEvent) {
@@ -183,8 +268,14 @@ export class TikTokLiveService {
     return [
       event.userId || event.username,
       event.giftId || event.giftName,
-      event.giftCount,
-      event.repeatEnd === undefined ? "unknown" : String(event.repeatEnd)
+      event.giftCount
+    ].join(":").toLowerCase();
+  }
+
+  private giftStreakKey(event: GiftAlertEvent) {
+    return [
+      event.userId || event.username,
+      event.giftId || event.giftName
     ].join(":").toLowerCase();
   }
 
@@ -244,6 +335,7 @@ export class TikTokLiveService {
     const fields = this.userFields(data);
     const repeatCount = Number(this.firstString(payload.repeatCount, payload.repeat_count, 1)) || 1;
     const diamondCount = Number(this.firstString(giftDetails.diamondCount, payload.diamondCount, payload.diamond_count, 0)) || 0;
+    const giftType = this.firstNumber(giftDetails.giftType, payload.giftType, payload.gift_type);
 
     return {
       id: this.id("gift"),
@@ -254,6 +346,7 @@ export class TikTokLiveService {
       giftName: this.firstString(giftDetails.giftName, payload.giftName, "Gift"),
       giftCount: repeatCount,
       diamondCount,
+      giftType,
       repeatEnd: typeof payload.repeatEnd === "boolean" ? payload.repeatEnd : undefined
     };
   }

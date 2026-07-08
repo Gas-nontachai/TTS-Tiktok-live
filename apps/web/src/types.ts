@@ -45,6 +45,7 @@ export interface GiftAlertEvent extends BaseOverlayEvent, UserEventFields {
   giftName: string;
   giftCount: number;
   diamondCount?: number;
+  giftType?: number;
   repeatEnd?: boolean;
 }
 
