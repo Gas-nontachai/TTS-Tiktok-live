@@ -3,9 +3,10 @@ import { Upload } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
 import { Button, Toggle, TextInput, NumberInput, RangeInput, SelectInput, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
 import { saveConfig, testAlert, testChatMessage, uploadMedia } from "../services/api";
+import { useSpeechQueue } from "../hooks/useSpeechQueue";
 import type { AlertAnimationPreset, AlertMediaPosition, AlertMediaType, AlertType, SoundPreset } from "../types";
 import { alertAnimations, buttonRowClass, chatAnimations, formGridClass, heartAnimations, panelClass, soundPresets, viewerAnimations } from "../config/constants";
-import { playAlertSound, soundPresetFor, typeLabel } from "../utils/helpers";
+import { playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
 
 const alertTypes: AlertType[] = ["follow", "share", "gift", "goal"];
 const mediaPositions: AlertMediaPosition[] = ["left", "right", "top", "bottom"];
@@ -94,6 +95,7 @@ function ViewerCountConfig() {
 function AlertConfig({ type }: { type: AlertType }) {
   const config = useAppStore((state) => state.config);
   const patchConfig = useAppStore((state) => state.patchConfig);
+  const { speakText } = useSpeechQueue();
   const [uploading, setUploading] = useState<"sound" | "media" | "">("");
   const alertConfig = config.alerts[type];
 
@@ -168,11 +170,22 @@ function AlertConfig({ type }: { type: AlertType }) {
         </label>
       </div>
       <div className={buttonRowClass}>
-        <Button onClick={() => void testAlert(type)}>Test {typeLabel(type)}</Button>
+        <Button onClick={() => void testAlertWithTtsPreview()}>Test {typeLabel(type)}</Button>
         <Button variant="secondary" onClick={() => playAlertSound(type, config)}>Preview Sound</Button>
       </div>
     </section>
   );
+
+  async function testAlertWithTtsPreview() {
+    await testAlert(type);
+
+    if (!config.tts.enabled || !config.tts.playerEnabled || !config.tts.speakAlerts || config.tts.muted || !alertConfig.enabled || !alertConfig.ttsEnabled) {
+      return;
+    }
+
+    const text = renderTemplate(alertConfig.template, sampleAlertEvent(type));
+    speakText(text);
+  }
 
   function patchSoundPreset(alertType: AlertType, preset: SoundPreset) {
     if (alertType === "share" || alertType === "comment" || alertType === "goal" || alertType === "like") {
@@ -184,6 +197,57 @@ function AlertConfig({ type }: { type: AlertType }) {
     if (alertType === "gift") {
       patchConfig({ sounds: { giftPreset: preset } });
     }
+  }
+}
+
+function sampleAlertEvent(type: AlertType) {
+  const base = {
+    id: `preview-${type}`,
+    timestamp: Date.now(),
+    userId: `tester_${type}`,
+    username: `tester_${type}`,
+    displayName: "Tester"
+  };
+
+  switch (type) {
+    case "gift":
+      return {
+        ...base,
+        type,
+        giftId: "rose",
+        giftName: "Rose",
+        giftCount: 5,
+        diamondCount: 5,
+        repeatEnd: true
+      };
+    case "goal":
+      return {
+        id: "preview-goal",
+        type,
+        goalId: "test_goal",
+        goalTitle: "Test Goal",
+        currentValue: 100,
+        targetValue: 100,
+        timestamp: Date.now()
+      };
+    case "like":
+      return {
+        ...base,
+        type,
+        likeCount: 8,
+        totalLikeCount: 100
+      };
+    case "comment":
+      return {
+        ...base,
+        type,
+        message: "This is a test chat message"
+      };
+    default:
+      return {
+        ...base,
+        type
+      };
   }
 }
 
