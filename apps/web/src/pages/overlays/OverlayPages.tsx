@@ -213,7 +213,7 @@ function GoalLayer() {
   }
 
   return (
-    <section className="absolute bottom-8 left-8 grid w-[min(480px,calc(100vw-48px))] gap-2.5">
+    <section className="absolute bottom-8 left-1/2 grid w-[min(760px,calc(100vw-48px))] -translate-x-1/2 gap-2.5">
       {activeGoals.map((goal) => (
         <GoalWidget key={goal.id} goal={goal} />
       ))}
@@ -221,21 +221,84 @@ function GoalLayer() {
   );
 }
 
-function GoalWidget({ goal }: { goal: GoalConfig }) {
+export function GoalWidget({ goal }: { goal: GoalConfig }) {
   const percent = Math.min(100, Math.round((goal.currentValue / goal.targetValue) * 100));
+  const currentValue = Math.floor(goal.currentValue).toLocaleString();
+  const targetValue = Math.floor(goal.targetValue).toLocaleString();
+  const template = goal.visualTemplate ?? "event-bar";
+
+  if (template === "neon-slab") {
+    return (
+      <article className="relative grid gap-2 px-7 py-4 text-white [text-shadow:0_2px_5px_rgba(0,0,0,0.9),0_0_12px_rgba(0,0,0,0.7)]">
+        <header className="flex items-end justify-between gap-4">
+          <strong className="min-w-0 truncate text-[clamp(20px,3.3vw,34px)] font-black leading-none">{goal.title}</strong>
+          <span className="text-[clamp(18px,2.8vw,30px)] font-black text-cyan-100">{percent}%</span>
+        </header>
+        <div className="relative h-5 overflow-hidden rounded-full bg-white/15 shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
+          <span className="block h-full rounded-full bg-[linear-gradient(90deg,#22d3ee,#a3e635,#facc15)] shadow-[0_0_18px_rgba(34,211,238,0.6)]" style={{ width: `${percent}%` }} />
+        </div>
+        <footer className="flex items-center justify-between gap-4 text-[clamp(14px,2vw,20px)] font-black text-white/90">
+          <span>{currentValue}</span>
+          <span>เป้าหมาย {targetValue}</span>
+        </footer>
+      </article>
+    );
+  }
+
+  if (template === "quest-meter") {
+    return (
+      <article className="relative grid gap-2 px-6 py-2 text-white [text-shadow:0_2px_3px_rgba(0,0,0,0.9),0_0_8px_rgba(0,0,0,0.7)]">
+        <header className="relative z-[1] flex items-center justify-between gap-3">
+          <strong className="min-w-0 truncate text-[clamp(18px,2.9vw,30px)] font-black">{goal.title}</strong>
+          <span className="rounded-sm bg-amber-300 px-2 py-1 text-[clamp(14px,2vw,20px)] font-black text-black [text-shadow:none]">{percent}%</span>
+        </header>
+        <div className="relative z-[1] h-4 overflow-hidden rounded-sm bg-white/18 shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
+          <span className="block h-full bg-[linear-gradient(90deg,#f97316,#fde047)]" style={{ width: `${percent}%` }} />
+        </div>
+        <p className="relative z-[1] text-center text-[clamp(14px,2vw,20px)] font-black">{currentValue} / {targetValue}</p>
+      </article>
+    );
+  }
+
+  if (template === "score-strip") {
+    return (
+      <article className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 px-5 py-3 text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.7)]">
+        <div className="grid h-16 w-16 place-items-center rounded-full bg-[#19f132] text-xl font-black text-black shadow-[0_0_18px_rgba(25,241,50,0.7)] [text-shadow:none]">{percent}%</div>
+        <div className="grid min-w-0 gap-2">
+          <strong className="truncate text-[clamp(18px,3vw,30px)] font-black leading-none">{goal.title}</strong>
+          <div className="h-3 overflow-hidden rounded-full bg-white/18 shadow-[0_2px_8px_rgba(0,0,0,0.65)]">
+            <span className="block h-full rounded-full bg-[#19f132]" style={{ width: `${percent}%` }} />
+          </div>
+        </div>
+        <strong className="text-right text-[clamp(18px,2.8vw,30px)] font-black leading-none">{currentValue}<span className="block text-sm text-white/70">/ {targetValue}</span></strong>
+      </article>
+    );
+  }
 
   return (
-    <article className={cn("grid gap-2 rounded-lg border border-white/30 bg-[rgba(18,24,20,0.78)] p-3 text-white shadow-[0_18px_44px_rgba(0,0,0,0.35)] backdrop-blur-md", goal.completed ? "border-[#f7c948] shadow-[0_0_24px_rgba(247,201,72,0.35)]" : "")}>
-      <header className="flex items-center justify-between gap-3">
-        <strong className="min-w-0 truncate">{goal.title}</strong>
-        <span className="text-sm font-bold text-white/80">{percent}%</span>
-      </header>
-      <div className="h-2.5 overflow-hidden rounded-full bg-white/20">
-        <span className="block h-full rounded-full bg-gradient-to-r from-[#69d391] to-[#f7c948]" style={{ width: `${percent}%` }} />
+    <article
+      className={cn(
+        "relative grid gap-1.5 px-8 pb-3 pt-1 text-center text-white [text-shadow:0_2px_3px_rgba(0,0,0,0.9),0_0_10px_rgba(0,0,0,0.65)]",
+        goal.completed ? "[filter:drop-shadow(0_0_14px_rgba(247,201,72,0.38))]" : ""
+      )}
+    >
+      <strong className="relative z-[1] mx-auto max-w-full truncate text-[clamp(22px,4vw,38px)] font-black leading-none">
+        {goal.title}
+      </strong>
+      <div className="relative z-[1] mt-1 h-12">
+        <div className="absolute inset-x-0 top-1/2 h-8 -translate-y-1/2 rounded-full bg-white/16 shadow-[0_2px_10px_rgba(0,0,0,0.65)]" />
+        <span
+          className="absolute left-0 top-1/2 h-11 min-w-11 -translate-y-1/2 rounded-full bg-[#19f132] shadow-[0_0_0_2px_rgba(0,0,0,0.35),0_0_18px_rgba(25,241,50,0.75)]"
+          style={{ width: `max(44px, ${percent}%)` }}
+        />
+        <strong className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-[clamp(22px,3.8vw,36px)] font-black leading-none">
+          {currentValue} ({percent}%)
+        </strong>
       </div>
-      <p className="text-sm text-white/80">
-        {Math.floor(goal.currentValue).toLocaleString()} / {Math.floor(goal.targetValue).toLocaleString()}
-      </p>
+      <footer className="relative z-[1] flex items-center justify-between gap-4 text-[clamp(16px,2.4vw,24px)] font-black leading-none">
+        <span>จากเป้าหมาย {targetValue}</span>
+        <span>{currentValue} / {targetValue}</span>
+      </footer>
     </article>
   );
 }

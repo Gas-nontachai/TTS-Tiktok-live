@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { AppConfig, AppStats, ChatMessageEvent, DeepPartial, GoalState, LogEntry, OverlayEvent, TikTokStatus } from "../types";
+import type { AppConfig, AppStats, ChatMessageEvent, DeepPartial, GoalConfig, GoalState, LogEntry, OverlayEvent, TikTokStatus } from "../types";
 
 export const defaultConfig: AppConfig = {
   tiktok: { username: "" },
@@ -219,6 +219,7 @@ export const defaultConfig: AppConfig = {
       type: "like",
       currentValue: 0,
       targetValue: 10000,
+      visualTemplate: "event-bar",
       enabled: false,
       isPaused: false,
       resetMode: "session",
@@ -231,6 +232,7 @@ export const defaultConfig: AppConfig = {
       type: "follow",
       currentValue: 0,
       targetValue: 100,
+      visualTemplate: "event-bar",
       enabled: false,
       isPaused: false,
       resetMode: "session",
@@ -356,10 +358,10 @@ export const useAppStore = create<AppState>()(
       wsConnected: false,
       currentSpeakingText: "",
       chatPaused: false,
-      setConfig: (config) => set({ config }),
-      setGoals: (goals) => set({ config: { ...get().config, goals } }),
+      setConfig: (config) => set({ config: normalizeConfig(config) }),
+      setGoals: (goals) => set({ config: normalizeConfig({ ...get().config, goals }) }),
       patchConfig: (partial) => {
-        set({ config: deepMerge(get().config, partial) });
+        set({ config: normalizeConfig(deepMerge(get().config, partial)) });
       },
       setStatus: (status) => set({ status }),
       setStats: (stats) => set({ stats }),
@@ -384,7 +386,7 @@ export const useAppStore = create<AppState>()(
         const persistedConfig = (persisted as { config?: DeepPartial<AppConfig> } | undefined)?.config;
         return {
           ...current,
-          config: persistedConfig ? deepMerge(current.config, persistedConfig) : current.config
+          config: normalizeConfig(persistedConfig ? deepMerge(current.config, persistedConfig) : current.config)
         };
       }
     }
@@ -411,4 +413,18 @@ function deepMerge<T>(target: T, partial: DeepPartial<T>): T {
   }
 
   return output as T;
+}
+
+function normalizeConfig(config: AppConfig): AppConfig {
+  return {
+    ...config,
+    goals: config.goals.map(normalizeGoal)
+  };
+}
+
+function normalizeGoal(goal: GoalConfig): GoalConfig {
+  return {
+    ...goal,
+    visualTemplate: goal.visualTemplate ?? "event-bar"
+  };
 }

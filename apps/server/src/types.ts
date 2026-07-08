@@ -14,6 +14,7 @@ type AlertVisualMode = "template" | "custom";
 type AlertVisualTemplate = "gift-pop" | "neon-pop" | "minimal-toast" | "big-shoutout" | "goal-complete";
 type GoalType = "like" | "follow" | "gift" | "coin" | "share" | "custom";
 type GoalResetMode = "session" | "manual" | "persistent";
+type GoalVisualTemplate = "event-bar" | "neon-slab" | "quest-meter" | "score-strip";
 
 export interface TikTokStatus {
   status: ConnectionStatus;
@@ -228,6 +229,7 @@ export interface GoalConfig {
   type: GoalType;
   currentValue: number;
   targetValue: number;
+  visualTemplate: GoalVisualTemplate;
   enabled: boolean;
   isPaused: boolean;
   resetMode: GoalResetMode;
