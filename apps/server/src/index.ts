@@ -199,6 +199,7 @@ app.post("/api/tiktok/connect", async (req, res, next) => {
     const config = await resetSessionGoals(await updateConfig({ tiktok: { username } }));
     broadcastConfig(config);
     hub.broadcast({ type: "goal_updated", payload: config.goals });
+    resetLiveSessionStats();
     const status = await tiktok.connect(username);
 
     res.json({
@@ -217,6 +218,7 @@ app.post("/api/tiktok/connect", async (req, res, next) => {
 app.post("/api/tiktok/disconnect", async (_req, res, next) => {
   try {
     await tiktok.disconnect();
+    resetViewerCount();
     res.json({ success: true, message: "Disconnected" });
   } catch (error) {
     next(error);
@@ -509,7 +511,35 @@ function handleChatMessage(event: ChatMessageEvent) {
 }
 
 function broadcastStatus(status: ReturnType<TikTokLiveService["getStatus"]>) {
+  if (status.status !== "connected") {
+    resetViewerCount();
+  }
   hub.broadcast({ type: "status", payload: status });
+}
+
+function resetViewerCount() {
+  stats.viewerCount = 0;
+  hub.broadcast({ type: "stats", payload: stats });
+}
+
+function resetLiveSessionStats() {
+  recentChat.length = 0;
+  stats.viewerCount = 0;
+  stats.totalLikes = 0;
+  stats.eventCounts = {};
+  stats.messagesPerMinute = 0;
+  stats.filteredChatCount = 0;
+  stats.visibleChatCount = 0;
+  hub.broadcast({ type: "chat_control", payload: { action: "clear" } });
+  hub.broadcast({
+    type: "chat_stats_updated",
+    payload: {
+      messagesPerMinute: stats.messagesPerMinute,
+      filteredChatCount: stats.filteredChatCount,
+      visibleChatCount: stats.visibleChatCount
+    }
+  });
+  hub.broadcast({ type: "stats", payload: stats });
 }
 
 function broadcastError(message: string) {
