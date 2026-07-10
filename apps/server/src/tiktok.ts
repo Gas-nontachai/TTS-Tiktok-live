@@ -29,9 +29,10 @@ type PendingGiftStreak = {
 };
 
 interface TikTokConnectionLike {
-  connect: () => Promise<{ roomId?: string | number }>;
+  connect: () => Promise<{ roomId?: string | number; roomInfo?: unknown }>;
   disconnect: () => void | Promise<void>;
   on: (eventName: string, callback: (data: unknown) => void) => void;
+  readonly roomInfo?: unknown;
 }
 
 export class TikTokLiveService {
@@ -142,6 +143,12 @@ export class TikTokLiveService {
       const state = await connection.connect();
       const roomId = state.roomId ? String(state.roomId) : "";
       this.setStatus({ status: "connected", username: cleanUsername, roomId });
+      const initialViewerEvent = this.mapInitialViewerCount(state.roomInfo ?? connection.roomInfo);
+      if (initialViewerEvent) {
+        this.emitNormalizedEvent("viewer_count", initialViewerEvent);
+      } else {
+        this.log("info", "normalized_event", "No initial viewer count found in room info", state.roomInfo ?? connection.roomInfo);
+      }
       this.log("info", "normalized_event", `Connected to @${cleanUsername}`, { roomId });
       return this.status;
     } catch (error) {
@@ -372,7 +379,12 @@ export class TikTokLiveService {
 
   private mapMemberCount(data: unknown): ViewerCountEvent | null {
     const payload = this.asRecord(data);
-    return this.normalizeViewerCount(this.firstNumber(payload.viewerCount, payload.viewer_count));
+    return this.normalizeViewerCount(this.firstNumber(payload.viewerCount, payload.viewer_count, payload.memberCount, payload.member_count));
+  }
+
+  private mapInitialViewerCount(roomInfo: unknown): ViewerCountEvent | null {
+    const viewerCount = this.findViewerCount(roomInfo);
+    return this.normalizeViewerCount(viewerCount);
   }
 
   private normalizeViewerCount(rawCount: number | undefined): ViewerCountEvent | null {
@@ -503,6 +515,41 @@ export class TikTokLiveService {
         if (Number.isFinite(number)) {
           return number;
         }
+      }
+    }
+
+    return undefined;
+  }
+
+  private findViewerCount(value: unknown, depth = 0): number | undefined {
+    if (!value || typeof value !== "object" || depth > 5) {
+      return undefined;
+    }
+
+    const record = value as Record<string, unknown>;
+    const direct = this.firstNumber(
+      record.viewerCount,
+      record.viewer_count,
+      record.memberCount,
+      record.member_count,
+      record.userCount,
+      record.user_count,
+      record.totalUser,
+      record.total_user,
+      record.totalUserCount,
+      record.total_user_count,
+      record.audienceCount,
+      record.audience_count
+    );
+
+    if (direct !== undefined) {
+      return direct;
+    }
+
+    for (const nested of Object.values(record)) {
+      const found = this.findViewerCount(nested, depth + 1);
+      if (found !== undefined) {
+        return found;
       }
     }
 
