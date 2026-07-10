@@ -6,7 +6,7 @@ import { useAlertQueue } from "../../hooks/useAlertQueue";
 import { Button, CopyRow, Metric } from "../../components/ui";
 import { Avatar } from "../../components";
 import { AlertRenderer } from "../../components/alerts/AlertRenderer";
-import type { AlertEvent, ChatMessageEvent, GoalConfig } from "../../types";
+import type { AlertEvent, AppConfig, ChatMessageEvent, GoalConfig } from "../../types";
 import { ttsPlayerUrl } from "../../config/constants";
 import { cn } from "../../lib/utils";
 import { chatBoxStyle, filterChat, trimMessages } from "../../utils/helpers";
@@ -41,13 +41,72 @@ function viewerAnimationClass(animation: string) {
   switch (animation) {
     case "fade":
       return "animate-fade-in";
-    case "pulse":
-      return "animate-viewer-pulse";
-    case "count-pop":
-      return "animate-count-pop";
     default:
       return "";
   }
+}
+
+function ViewerCountBadge({ count, viewerCountConfig }: { count: number; viewerCountConfig: AppConfig["viewerCount"] }) {
+  const prefix = viewerCountPrefix(viewerCountConfig);
+
+  return (
+    <div
+      className={cn(
+        "absolute z-[5] rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)]",
+        "flex items-center gap-1.5 whitespace-nowrap font-semibold tabular-nums",
+        overlayPositionClass(viewerCountConfig.position),
+        viewerAnimationClass(viewerCountConfig.animationPreset)
+      )}
+      style={{ fontSize: viewerCountConfig.fontSize }}
+    >
+      {prefix ? <span>{prefix}</span> : null}
+      <RollingNumber value={count} animate={viewerCountConfig.animationPreset === "count-pop" || viewerCountConfig.animationPreset === "pulse"} />
+    </div>
+  );
+}
+
+function viewerCountPrefix(viewerCountConfig: AppConfig["viewerCount"]) {
+  return viewerCountConfig.label.trim().replace(/^👁\s*/u, "");
+}
+
+function RollingNumber({ value, animate }: { value: number; animate: boolean }) {
+  const text = Math.max(0, Math.round(value)).toLocaleString("en-US");
+
+  if (!animate) {
+    return <span>{text}</span>;
+  }
+
+  return (
+    <span className="inline-flex h-[1.12em] items-center overflow-hidden leading-none" aria-label={text}>
+      {text.split("").map((character, index) => (
+        <RollingCharacter key={`${index}-${text.length}`} character={character} />
+      ))}
+    </span>
+  );
+}
+
+function RollingCharacter({ character }: { character: string }) {
+  if (!/\d/.test(character)) {
+    return (
+      <span className="inline-block w-[0.38em] text-center leading-none" aria-hidden="true">
+        {character}
+      </span>
+    );
+  }
+
+  const digit = Number(character);
+
+  return (
+    <span className="relative inline-block h-[1.12em] w-[0.62em] overflow-hidden text-center leading-none" aria-hidden="true">
+      <span className="absolute left-0 top-0 grid w-full transition-transform duration-500 ease-out" style={{ transform: `translateY(-${digit * 1.12}em)` }}>
+        {"0123456789".split("").map((item) => (
+          <span key={item} className="h-[1.12em] leading-[1.12em]">
+            {item}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 function heartAnimationClass(animation: string) {
@@ -148,10 +207,7 @@ export function MainOverlay() {
   return (
     <main className={obsOverlayClass}>
       {config.overlay.showViewerCount && config.viewerCount.enabled ? (
-        <div key={`${config.viewerCount.animationPreset}-${stats.viewerCount}`} className={cn("absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] will-change-transform", overlayPositionClass(config.viewerCount.position), viewerAnimationClass(config.viewerCount.animationPreset))} style={{ fontSize: config.viewerCount.fontSize }}>
-          {config.viewerCount.showIcon ? "👁 " : null}
-          {config.viewerCount.label} {stats.viewerCount}
-        </div>
+        <ViewerCountBadge count={stats.viewerCount} viewerCountConfig={config.viewerCount} />
       ) : null}
       {current ? <AlertRenderer event={current} alertConfig={config.alerts[current.type]} position={config.overlay.alertPosition} /> : null}
       {hearts.map((heart) => (
@@ -312,10 +368,7 @@ function ViewerCountLayer() {
   }
 
   return (
-    <div key={`${config.viewerCount.animationPreset}-${stats.viewerCount}`} className={cn("absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] will-change-transform", overlayPositionClass(config.viewerCount.position), viewerAnimationClass(config.viewerCount.animationPreset))} style={{ fontSize: config.viewerCount.fontSize }}>
-      {config.viewerCount.showIcon ? "👁 " : null}
-      {config.viewerCount.label} {stats.viewerCount}
-    </div>
+    <ViewerCountBadge count={stats.viewerCount} viewerCountConfig={config.viewerCount} />
   );
 }
 

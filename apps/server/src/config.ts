@@ -168,10 +168,10 @@ export const defaultConfig: AppConfig = {
   viewerCount: {
     enabled: true,
     position: "top-right",
-    showIcon: true,
+    showIcon: false,
     label: "ผู้ชม",
     fontSize: 28,
-    animationPreset: "pulse"
+    animationPreset: "count-pop"
   },
   likeHearts: {
     enabled: true,

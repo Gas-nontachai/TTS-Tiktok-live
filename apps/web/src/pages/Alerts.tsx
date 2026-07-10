@@ -412,11 +412,12 @@ function LikeHeartsPreview() {
 function ViewerCountPreview() {
   const config = useAppStore((state) => state.config);
   const sampleViewerCount = 128;
+  const prefix = config.viewerCount.label.trim().replace(/^👁\s*/u, "");
 
   return (
     <div className={`absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] ${previewPositionClass(config.viewerCount.position)}`} style={{ fontSize: config.viewerCount.fontSize }}>
-      {config.viewerCount.showIcon ? "👁 " : null}
-      {config.viewerCount.label} {sampleViewerCount}
+      {prefix ? `${prefix} ` : null}
+      {sampleViewerCount}
     </div>
   );
 }
