@@ -261,31 +261,35 @@ export const defaultConfig: AppConfig = {
     },
     queue: {
       maxVisibleMessages: 8,
-      messageLifetimeMs: 15000,
+      messageLifetimeMs: 8000,
       removeOldMessages: true,
       newestPosition: "bottom"
     },
     animation: {
       enabled: true,
-      enterAnimation: "slide-up",
-      exitAnimation: "fade",
-      durationMs: 300
+      enterAnimation: "slide-in",
+      exitAnimation: "fade-out",
+      durationMs: 220,
+      enterDurationMs: 220,
+      exitDurationMs: 350,
+      reducedMotion: false,
+      emojiSupport: true
     },
     theme: {
-      fontFamily: "system-ui, sans-serif",
+      fontFamily: "system",
       fontSize: 24,
       usernameFontSize: 22,
       messageFontSize: 24,
       textColor: "#ffffff",
       usernameColor: "#ff4fd8",
       backgroundColor: "transparent",
-      bubbleColor: "rgba(0, 0, 0, 0.55)",
-      borderColor: "rgba(255, 255, 255, 0.15)",
-      borderRadius: 16,
+      bubbleColor: "transparent",
+      borderColor: "transparent",
+      borderRadius: 0,
       opacity: 100,
       spacing: 10,
-      padding: 12,
-      shadowEnabled: true
+      padding: 0,
+      shadowEnabled: false
     },
     position: {
       position: "bottom-left",
@@ -315,7 +319,8 @@ export const defaultConfig: AppConfig = {
 
 const positionSchema = z.enum(["top-left", "top-right", "bottom-left", "bottom-right"]);
 const alertAnimationSchema = z.enum(["fade", "slide-up", "slide-left", "pop", "bounce", "zoom", "flip", "glow-pulse"]);
-const chatAnimationSchema = z.enum(["none", "fade", "slide-up", "slide-left", "slide-right", "pop", "stack-pop", "soft-drop"]);
+const chatEnterAnimationSchema = z.enum(["none", "fade-in", "slide-in", "pop-in", "bounce-in", "glitch-in", "fade", "slide-up", "slide-left", "slide-right", "pop", "stack-pop", "soft-drop"]);
+const chatExitAnimationSchema = z.enum(["none", "fade-out", "slide-up", "drift-away", "shrink-out", "glitch-out", "fade", "slide-left", "slide-right"]);
 const heartAnimationSchema = z.enum(["float-up", "burst", "spiral", "side-float", "confetti"]);
 const viewerAnimationSchema = z.enum(["none", "fade", "pulse", "count-pop"]);
 const soundPresetSchema = z.enum(["none", "chime", "pop", "sparkle", "coin", "soft-bell", "digital"]);
@@ -461,9 +466,13 @@ const configSchema = z.object({
     }),
     animation: z.object({
       enabled: z.boolean(),
-      enterAnimation: chatAnimationSchema,
-      exitAnimation: z.enum(["none", "fade", "slide-up", "slide-left", "slide-right"]),
-      durationMs: z.number().int().min(0).max(5000)
+      enterAnimation: chatEnterAnimationSchema,
+      exitAnimation: chatExitAnimationSchema,
+      durationMs: z.number().int().min(0).max(5000),
+      enterDurationMs: z.number().int().min(0).max(5000),
+      exitDurationMs: z.number().int().min(0).max(5000),
+      reducedMotion: z.boolean(),
+      emojiSupport: z.boolean()
     }),
     theme: z.object({
       fontFamily: z.string(),

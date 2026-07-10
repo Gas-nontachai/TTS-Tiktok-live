@@ -1,7 +1,9 @@
-import type { AlertAnimationPreset, AlertVisualTemplate, ChatAnimationPreset, SoundPreset } from "../types";
+import type { AlertAnimationPreset, AlertVisualTemplate, ChatEnterAnimationPreset, ChatExitAnimationPreset, SoundPreset } from "../types";
 
 export const alertAnimations: AlertAnimationPreset[] = ["fade", "slide-up", "slide-left", "pop", "bounce", "zoom", "flip", "glow-pulse"];
-export const chatAnimations: ChatAnimationPreset[] = ["none", "fade", "slide-up", "slide-left", "slide-right", "pop", "stack-pop", "soft-drop"];
+export const chatEnterAnimations: ChatEnterAnimationPreset[] = ["none", "fade-in", "slide-in", "pop-in", "bounce-in", "glitch-in"];
+export const chatExitAnimations: ChatExitAnimationPreset[] = ["none", "fade-out", "slide-up", "drift-away", "shrink-out", "glitch-out"];
+export const chatFontFamilies: string[] = ["system", "Inter", "Noto Sans", "Noto Sans Thai", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", "Prompt", "Sarabun", "Kanit", "Pixel / Retro"];
 export const heartAnimations = ["float-up", "burst", "spiral", "side-float", "confetti"] as const;
 export const viewerAnimations = ["none", "fade", "pulse", "count-pop"] as const;
 export const soundPresets: SoundPreset[] = ["none", "chime", "pop", "sparkle", "coin", "soft-bell", "digital"];

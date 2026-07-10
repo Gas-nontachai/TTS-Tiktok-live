@@ -254,31 +254,35 @@ export const defaultConfig: AppConfig = {
     },
     queue: {
       maxVisibleMessages: 8,
-      messageLifetimeMs: 15000,
+      messageLifetimeMs: 8000,
       removeOldMessages: true,
       newestPosition: "bottom"
     },
     animation: {
       enabled: true,
-      enterAnimation: "slide-up",
-      exitAnimation: "fade",
-      durationMs: 300
+      enterAnimation: "slide-in",
+      exitAnimation: "fade-out",
+      durationMs: 220,
+      enterDurationMs: 220,
+      exitDurationMs: 350,
+      reducedMotion: false,
+      emojiSupport: true
     },
     theme: {
-      fontFamily: "system-ui, sans-serif",
+      fontFamily: "system",
       fontSize: 24,
       usernameFontSize: 22,
       messageFontSize: 24,
       textColor: "#ffffff",
       usernameColor: "#ff4fd8",
       backgroundColor: "transparent",
-      bubbleColor: "rgba(0, 0, 0, 0.55)",
-      borderColor: "rgba(255, 255, 255, 0.15)",
-      borderRadius: 16,
+      bubbleColor: "transparent",
+      borderColor: "transparent",
+      borderRadius: 0,
       opacity: 100,
       spacing: 10,
-      padding: 12,
-      shadowEnabled: true
+      padding: 0,
+      shadowEnabled: false
     },
     position: {
       position: "bottom-left",
