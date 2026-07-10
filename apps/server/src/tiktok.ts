@@ -12,6 +12,7 @@ import type {
 } from "./types.js";
 
 type EventHandler = (event: OverlayEvent) => void;
+type MappedOverlayEvent = OverlayEvent | null;
 type ChatHandler = (event: ChatMessageEvent) => void;
 type StatusHandler = (status: TikTokStatus) => void;
 type ErrorHandler = (message: string) => void;
@@ -19,6 +20,8 @@ type LogHandler = (entry: LogEntry) => void;
 
 const giftDuplicateTtlMs = 3000;
 const giftStreakIdleMs = 1500;
+const viewerZeroHoldMs = 15000;
+const viewerSpikeWindowMs = 2500;
 
 type PendingGiftStreak = {
   event: GiftAlertEvent;
@@ -35,6 +38,8 @@ export class TikTokLiveService {
   private connection?: TikTokConnectionLike;
   private recentGiftKeys: Record<string, number> = {};
   private pendingGiftStreaks: Record<string, PendingGiftStreak> = {};
+  private lastViewerCount?: number;
+  private lastViewerCountAt = 0;
   private status: TikTokStatus = {
     status: "disconnected",
     username: "",
@@ -69,10 +74,12 @@ export class TikTokLiveService {
     }) as unknown as TikTokConnectionLike;
     this.connection = connection;
     this.recentGiftKeys = {};
+    this.lastViewerCount = undefined;
+    this.lastViewerCountAt = 0;
     this.clearPendingGiftStreaks();
 
     const isActiveConnection = () => this.connection === connection;
-    const emitIfActive = (type: string, mapper: (data: unknown) => OverlayEvent) => (data: unknown) => {
+    const emitIfActive = (type: string, mapper: (data: unknown) => MappedOverlayEvent) => (data: unknown) => {
       if (!isActiveConnection()) {
         return;
       }
@@ -155,6 +162,8 @@ export class TikTokLiveService {
       await connection.disconnect();
     }
     this.recentGiftKeys = {};
+    this.lastViewerCount = undefined;
+    this.lastViewerCountAt = 0;
     this.clearPendingGiftStreaks();
 
     this.setStatus({ status: "disconnected", username: this.status.username, roomId: "" }, announce);
@@ -163,8 +172,13 @@ export class TikTokLiveService {
     }
   }
 
-  private emitMapped(type: string, event: OverlayEvent, raw: unknown) {
+  private emitMapped(type: string, event: MappedOverlayEvent, raw: unknown) {
     this.log("info", "raw_event", `Raw ${type} event received`, raw);
+    if (!event) {
+      this.log("info", "normalized_event", `Skipped unstable ${type} event`);
+      return;
+    }
+
     if (event.type === "gift") {
       this.queueGiftEvent(event);
       return;
@@ -351,22 +365,46 @@ export class TikTokLiveService {
     };
   }
 
-  private mapViewerCount(data: unknown): ViewerCountEvent {
+  private mapViewerCount(data: unknown): ViewerCountEvent | null {
     const payload = this.asRecord(data);
-    return {
-      id: this.id("viewer"),
-      type: "viewer_count",
-      viewerCount: this.firstNumber(payload.viewerCount, payload.viewer_count, payload.memberCount, payload.member_count) ?? 0,
-      timestamp: Date.now()
-    };
+    return this.normalizeViewerCount(this.firstNumber(payload.viewerCount, payload.viewer_count, payload.memberCount, payload.member_count));
   }
 
-  private mapMemberCount(data: unknown): ViewerCountEvent {
+  private mapMemberCount(data: unknown): ViewerCountEvent | null {
     const payload = this.asRecord(data);
+    return this.normalizeViewerCount(this.firstNumber(payload.viewerCount, payload.viewer_count));
+  }
+
+  private normalizeViewerCount(rawCount: number | undefined): ViewerCountEvent | null {
+    if (rawCount === undefined || rawCount < 0) {
+      return null;
+    }
+
+    const viewerCount = Math.max(0, Math.round(rawCount));
+    const now = Date.now();
+
+    if (this.lastViewerCount !== undefined) {
+      const elapsed = now - this.lastViewerCountAt;
+
+      if (viewerCount === 0 && this.lastViewerCount > 0 && elapsed < viewerZeroHoldMs) {
+        return null;
+      }
+
+      const delta = Math.abs(viewerCount - this.lastViewerCount);
+      const spikeLimit = Math.max(100, Math.ceil(this.lastViewerCount * 0.75));
+
+      if (elapsed < viewerSpikeWindowMs && delta > spikeLimit) {
+        return null;
+      }
+    }
+
+    this.lastViewerCount = viewerCount;
+    this.lastViewerCountAt = now;
+
     return {
       id: this.id("viewer"),
       type: "viewer_count",
-      viewerCount: this.firstNumber(payload.memberCount, payload.member_count, payload.viewerCount, payload.viewer_count) ?? 0,
+      viewerCount,
       timestamp: Date.now()
     };
   }

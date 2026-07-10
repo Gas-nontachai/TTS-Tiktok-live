@@ -77,6 +77,42 @@ export default {
           from: { opacity: "0", transform: "translateY(-16px)" },
           to: { opacity: "1", transform: "translateY(0)" }
         },
+        "chat-fade-out": {
+          from: { opacity: "1" },
+          to: { opacity: "0" }
+        },
+        "chat-slide-up-out": {
+          from: { opacity: "1", transform: "translateY(0)" },
+          to: { opacity: "0", transform: "translateY(-18px)" }
+        },
+        "chat-slide-left-out": {
+          from: { opacity: "1", transform: "translateX(0)" },
+          to: { opacity: "0", transform: "translateX(-28px)" }
+        },
+        "chat-slide-right-out": {
+          from: { opacity: "1", transform: "translateX(0)" },
+          to: { opacity: "0", transform: "translateX(28px)" }
+        },
+        "chat-drift-away": {
+          from: { opacity: "1", transform: "translateY(0) translateX(0)" },
+          to: { opacity: "0", transform: "translateY(-26px) translateX(18px)" }
+        },
+        "chat-shrink-out": {
+          from: { opacity: "1", transform: "scale(1)" },
+          to: { opacity: "0", transform: "scale(0.88)" }
+        },
+        "chat-glitch-in": {
+          "0%": { opacity: "0", transform: "translateX(-10px)", filter: "hue-rotate(45deg)" },
+          "35%": { opacity: "1", transform: "translateX(6px)", filter: "hue-rotate(-28deg)" },
+          "70%": { transform: "translateX(-2px)", filter: "hue-rotate(12deg)" },
+          "100%": { opacity: "1", transform: "translateX(0)", filter: "none" }
+        },
+        "chat-glitch-out": {
+          "0%": { opacity: "1", transform: "translateX(0)", filter: "none" },
+          "35%": { transform: "translateX(6px)", filter: "hue-rotate(-28deg)" },
+          "70%": { transform: "translateX(-8px)", filter: "hue-rotate(45deg)" },
+          "100%": { opacity: "0", transform: "translateX(12px)", filter: "hue-rotate(-45deg)" }
+        },
         "alert-bounce": {
           "0%": { opacity: "0", transform: "translateY(24px) scale(0.9)" },
           "60%": { opacity: "1", transform: "translateY(-8px) scale(1.04)" },
@@ -143,6 +179,14 @@ export default {
         "slide-right": "slide-right 300ms ease-out both",
         "stack-pop": "stack-pop 320ms ease-out both",
         "soft-drop": "soft-drop 360ms ease-out both",
+        "chat-fade-out": "chat-fade-out 300ms ease-in both",
+        "chat-slide-up-out": "chat-slide-up-out 300ms ease-in both",
+        "chat-slide-left-out": "chat-slide-left-out 300ms ease-in both",
+        "chat-slide-right-out": "chat-slide-right-out 300ms ease-in both",
+        "chat-drift-away": "chat-drift-away 360ms ease-in both",
+        "chat-shrink-out": "chat-shrink-out 300ms ease-in both",
+        "chat-glitch-in": "chat-glitch-in 260ms steps(2, end) both",
+        "chat-glitch-out": "chat-glitch-out 300ms steps(2, end) both",
         "alert-bounce": "alert-bounce 300ms cubic-bezier(0.22, 1.2, 0.36, 1) both",
         "alert-zoom": "alert-zoom 300ms ease-out both",
         "alert-flip": "alert-flip 300ms ease-out both",
@@ -159,4 +203,3 @@ export default {
   },
   plugins: []
 };
-

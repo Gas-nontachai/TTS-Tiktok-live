@@ -275,10 +275,13 @@ app.post("/api/test/gift", (_req, res) => {
 });
 
 app.post("/api/test/viewer-count", (_req, res) => {
+  const currentCount = stats.viewerCount > 0 ? stats.viewerCount : 120;
+  const delta = Math.floor(Math.random() * 13) - 4;
+  const viewerCount = Math.max(1, currentCount + delta);
   const event = {
     id: id("viewer"),
     type: "viewer_count" as const,
-    viewerCount: Math.floor(20 + Math.random() * 400),
+    viewerCount,
     timestamp: Date.now()
   };
   handleOverlayEvent(event);

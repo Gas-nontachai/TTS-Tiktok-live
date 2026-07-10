@@ -6,10 +6,10 @@ import { useAlertQueue } from "../../hooks/useAlertQueue";
 import { Button, CopyRow, Metric } from "../../components/ui";
 import { Avatar } from "../../components";
 import { AlertRenderer } from "../../components/alerts/AlertRenderer";
-import type { AlertEvent, ChatMessageEvent, GoalConfig } from "../../types";
+import type { AlertEvent, AppConfig, ChatMessageEvent, GoalConfig } from "../../types";
 import { ttsPlayerUrl } from "../../config/constants";
 import { cn } from "../../lib/utils";
-import { chatBoxStyle, filterChat, trimMessages } from "../../utils/helpers";
+import { chatBoxStyle, chatEnterAnimationClass, chatExitAnimationClass, chatFontStack, filterChat, trimMessages } from "../../utils/helpers";
 
 const obsOverlayClass = "pointer-events-none relative h-screen w-screen overflow-hidden bg-transparent font-sans";
 
@@ -41,13 +41,72 @@ function viewerAnimationClass(animation: string) {
   switch (animation) {
     case "fade":
       return "animate-fade-in";
-    case "pulse":
-      return "animate-viewer-pulse";
-    case "count-pop":
-      return "animate-count-pop";
     default:
       return "";
   }
+}
+
+function ViewerCountBadge({ count, viewerCountConfig }: { count: number; viewerCountConfig: AppConfig["viewerCount"] }) {
+  const prefix = viewerCountPrefix(viewerCountConfig);
+
+  return (
+    <div
+      className={cn(
+        "absolute z-[5] rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)]",
+        "flex items-center gap-1.5 whitespace-nowrap font-semibold tabular-nums",
+        overlayPositionClass(viewerCountConfig.position),
+        viewerAnimationClass(viewerCountConfig.animationPreset)
+      )}
+      style={{ fontSize: viewerCountConfig.fontSize }}
+    >
+      {prefix ? <span>{prefix}</span> : null}
+      <RollingNumber value={count} animate={viewerCountConfig.animationPreset === "count-pop" || viewerCountConfig.animationPreset === "pulse"} />
+    </div>
+  );
+}
+
+function viewerCountPrefix(viewerCountConfig: AppConfig["viewerCount"]) {
+  return viewerCountConfig.label.trim().replace(/^👁\s*/u, "");
+}
+
+function RollingNumber({ value, animate }: { value: number; animate: boolean }) {
+  const text = Math.max(0, Math.round(value)).toLocaleString("en-US");
+
+  if (!animate) {
+    return <span>{text}</span>;
+  }
+
+  return (
+    <span className="inline-flex h-[1.12em] items-center overflow-hidden leading-none" aria-label={text}>
+      {text.split("").map((character, index) => (
+        <RollingCharacter key={`${index}-${text.length}`} character={character} />
+      ))}
+    </span>
+  );
+}
+
+function RollingCharacter({ character }: { character: string }) {
+  if (!/\d/.test(character)) {
+    return (
+      <span className="inline-block w-[0.38em] text-center leading-none" aria-hidden="true">
+        {character}
+      </span>
+    );
+  }
+
+  const digit = Number(character);
+
+  return (
+    <span className="relative inline-block h-[1.12em] w-[0.62em] overflow-hidden text-center leading-none" aria-hidden="true">
+      <span className="absolute left-0 top-0 grid w-full transition-transform duration-500 ease-out" style={{ transform: `translateY(-${digit * 1.12}em)` }}>
+        {"0123456789".split("").map((item) => (
+          <span key={item} className="h-[1.12em] leading-[1.12em]">
+            {item}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
 }
 
 function heartAnimationClass(animation: string) {
@@ -98,27 +157,6 @@ function heartPositionStyle(position: string, heart: HeartParticle): CSSProperti
   return base;
 }
 
-function chatAnimationClass(animation: string) {
-  switch (animation) {
-    case "pop":
-      return "animate-alert-pop";
-    case "stack-pop":
-      return "animate-stack-pop";
-    case "soft-drop":
-      return "animate-soft-drop";
-    case "slide-up":
-      return "animate-slide-up";
-    case "slide-left":
-      return "animate-slide-left";
-    case "slide-right":
-      return "animate-slide-right";
-    case "fade":
-      return "animate-fade-in";
-    default:
-      return "";
-  }
-}
-
 export function MainOverlay() {
   const config = useAppStore((state) => state.config);
   const events = useAppStore((state) => state.overlayEvents);
@@ -148,10 +186,7 @@ export function MainOverlay() {
   return (
     <main className={obsOverlayClass}>
       {config.overlay.showViewerCount && config.viewerCount.enabled ? (
-        <div key={`${config.viewerCount.animationPreset}-${stats.viewerCount}`} className={cn("absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] will-change-transform", overlayPositionClass(config.viewerCount.position), viewerAnimationClass(config.viewerCount.animationPreset))} style={{ fontSize: config.viewerCount.fontSize }}>
-          {config.viewerCount.showIcon ? "👁 " : null}
-          {config.viewerCount.label} {stats.viewerCount}
-        </div>
+        <ViewerCountBadge count={stats.viewerCount} viewerCountConfig={config.viewerCount} />
       ) : null}
       {current ? <AlertRenderer event={current} alertConfig={config.alerts[current.type]} position={config.overlay.alertPosition} /> : null}
       {hearts.map((heart) => (
@@ -312,10 +347,7 @@ function ViewerCountLayer() {
   }
 
   return (
-    <div key={`${config.viewerCount.animationPreset}-${stats.viewerCount}`} className={cn("absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] will-change-transform", overlayPositionClass(config.viewerCount.position), viewerAnimationClass(config.viewerCount.animationPreset))} style={{ fontSize: config.viewerCount.fontSize }}>
-      {config.viewerCount.showIcon ? "👁 " : null}
-      {config.viewerCount.label} {stats.viewerCount}
-    </div>
+    <ViewerCountBadge count={stats.viewerCount} viewerCountConfig={config.viewerCount} />
   );
 }
 
@@ -424,9 +456,35 @@ export function TtsPlayerPage() {
 export function ChatOverlay() {
   const config = useAppStore((state) => state.config);
   const incomingMessages = useAppStore((state) => state.chatMessages);
-  const [messages, setMessages] = useState<ChatMessageEvent[]>([]);
+  const [messages, setMessages] = useState<ChatOverlayMessage[]>([]);
   const seenRef = useRef(new Set<string>());
   const duplicatesRef = useRef<Record<string, number>>({});
+  const timersRef = useRef<Record<string, ReturnType<typeof window.setTimeout>>>({});
+
+  const exitDurationMs = config.chat.animation.reducedMotion ? 120 : config.chat.animation.exitDurationMs;
+
+  function clearMessageTimer(id: string) {
+    const timer = timersRef.current[id];
+    if (timer) {
+      window.clearTimeout(timer);
+      delete timersRef.current[id];
+    }
+  }
+
+  function removeMessage(id: string) {
+    clearMessageTimer(id);
+    setMessages((items) => items.filter((message) => message.id !== id));
+  }
+
+  function exitMessage(id: string) {
+    if (!config.chat.animation.enabled || config.chat.animation.exitAnimation === "none") {
+      removeMessage(id);
+      return;
+    }
+    clearMessageTimer(id);
+    setMessages((items) => items.map((message) => (message.id === id ? { ...message, phase: "exiting" } : message)));
+    timersRef.current[id] = window.setTimeout(() => removeMessage(id), exitDurationMs);
+  }
 
   useEffect(() => {
     const latest = incomingMessages[0];
@@ -438,17 +496,29 @@ export function ChatOverlay() {
     if (!filtered) {
       return;
     }
+    const nextMessage: ChatOverlayMessage = { ...filtered, phase: "entering" };
     setMessages((items) => {
-      const next = config.chat.queue.newestPosition === "top" ? [filtered, ...items] : [...items, filtered];
-      return trimMessages(next, config.chat.queue.maxVisibleMessages, config.chat.queue.newestPosition);
+      const next = config.chat.queue.newestPosition === "top" ? [nextMessage, ...items] : [...items, nextMessage];
+      const visible = trimMessages(next, config.chat.queue.maxVisibleMessages, config.chat.queue.newestPosition);
+      const visibleIds = new Set(visible.map((message) => message.id));
+      const exiting = next
+        .filter((message) => !visibleIds.has(message.id))
+        .map((message) => ({ ...message, phase: "exiting" as const }));
+      exiting.forEach((message) => {
+        clearMessageTimer(message.id);
+        timersRef.current[message.id] = window.setTimeout(() => removeMessage(message.id), exitDurationMs);
+      });
+      return config.chat.queue.newestPosition === "top" ? [...visible, ...exiting] : [...exiting, ...visible];
     });
-    window.setTimeout(() => {
-      setMessages((items) => items.filter((message) => message.id !== latest.id));
-    }, config.chat.queue.messageLifetimeMs);
+    if (config.chat.queue.removeOldMessages) {
+      timersRef.current[latest.id] = window.setTimeout(() => exitMessage(latest.id), config.chat.queue.messageLifetimeMs);
+    }
   }, [config, incomingMessages]);
 
   useEffect(() => {
     if (incomingMessages.length === 0) {
+      Object.values(timersRef.current).forEach((timer) => window.clearTimeout(timer));
+      timersRef.current = {};
       setMessages([]);
     }
   }, [incomingMessages.length]);
@@ -460,34 +530,42 @@ export function ChatOverlay() {
   );
 }
 
-function ChatBox({ messages }: { messages: ChatMessageEvent[] }) {
+type ChatOverlayMessage = ChatMessageEvent & { phase?: "entering" | "exiting" };
+
+function ChatBox({ messages }: { messages: ChatOverlayMessage[] }) {
   const config = useAppStore((state) => state.config);
   const style = chatBoxStyle(config.chat.position);
   const theme = config.chat.theme;
   const ordered = config.chat.display.messageOrder === "newest-first" ? messages : [...messages].sort((a, b) => a.timestamp - b.timestamp);
+  const reducedMotion = config.chat.animation.reducedMotion;
+  const enterDurationMs = reducedMotion ? 120 : config.chat.animation.enterDurationMs || config.chat.animation.durationMs;
+  const exitDurationMs = reducedMotion ? 120 : config.chat.animation.exitDurationMs || config.chat.animation.durationMs;
 
   return (
     <section className="absolute z-[6] flex flex-col justify-end overflow-hidden" style={style}>
       {ordered.map((message) => (
         <article
           key={message.id}
+          dir="auto"
           className={cn(
-            "flex items-start gap-2.5 border border-transparent leading-[1.28] [overflow-wrap:anywhere]",
+            "flex items-start gap-2.5 border border-transparent leading-[1.28] [overflow-wrap:anywhere] [unicode-bidi:plaintext]",
             config.chat.display.compactMode ? "block" : "",
-            config.chat.animation.enabled ? chatAnimationClass(config.chat.animation.enterAnimation) : ""
+            config.chat.animation.enabled && message.phase !== "exiting" ? chatEnterAnimationClass(reducedMotion ? "fade-in" : config.chat.animation.enterAnimation) : "",
+            config.chat.animation.enabled && message.phase === "exiting" ? chatExitAnimationClass(reducedMotion ? "fade-out" : config.chat.animation.exitAnimation) : ""
           )}
           style={{
             color: theme.textColor,
-            fontFamily: theme.fontFamily,
+            fontFamily: chatFontStack(theme.fontFamily, config.chat.animation.emojiSupport),
             fontSize: theme.messageFontSize,
-            background: config.chat.display.compactMode ? "transparent" : theme.bubbleColor,
-            borderColor: theme.borderColor,
-            borderRadius: theme.borderRadius,
+            background: "transparent",
+            borderColor: "transparent",
+            borderRadius: 0,
             opacity: theme.opacity / 100,
-            padding: theme.padding,
+            padding: 0,
             marginBottom: theme.spacing,
-            animationDuration: `${config.chat.animation.durationMs}ms`,
-            boxShadow: theme.shadowEnabled ? "0 10px 30px rgba(0,0,0,0.35)" : "none"
+            animationDuration: `${message.phase === "exiting" ? exitDurationMs : enterDurationMs}ms`,
+            boxShadow: "none",
+            textShadow: "0 2px 6px rgba(0,0,0,0.55)"
           }}
         >
           {config.chat.display.showAvatar && !config.chat.display.compactMode ? <Avatar message={message} /> : null}
@@ -497,7 +575,7 @@ function ChatBox({ messages }: { messages: ChatMessageEvent[] }) {
               {config.chat.display.showUsername ? <span className="text-[0.85em] opacity-70">@{message.username}</span> : null}
               {config.chat.display.showTimestamp ? <time className="text-[0.8em] opacity-60">{new Date(message.timestamp).toLocaleTimeString()}</time> : null}
             </header>
-            <p className="m-0">{message.message}</p>
+            <p className="m-0 whitespace-pre-wrap" dir="auto">{message.message}</p>
           </div>
         </article>
       ))}

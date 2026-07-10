@@ -3,7 +3,9 @@ export type AlertType = "like" | "comment" | "follow" | "share" | "gift" | "goal
 type OverlayEventType = AlertType | "viewer_count" | "chat_message" | "system";
 type Position = "top-left" | "top-right" | "bottom-left" | "bottom-right";
 export type AlertAnimationPreset = "fade" | "slide-up" | "slide-left" | "pop" | "bounce" | "zoom" | "flip" | "glow-pulse";
-export type ChatAnimationPreset = "none" | "fade" | "slide-up" | "slide-left" | "slide-right" | "pop" | "stack-pop" | "soft-drop";
+export type ChatEnterAnimationPreset = "none" | "fade-in" | "slide-in" | "pop-in" | "bounce-in" | "glitch-in";
+export type ChatExitAnimationPreset = "none" | "fade-out" | "slide-up" | "drift-away" | "shrink-out" | "glitch-out";
+export type ChatAnimationPreset = ChatEnterAnimationPreset | "fade" | "slide-up" | "slide-left" | "slide-right" | "pop" | "stack-pop" | "soft-drop";
 type HeartAnimationPreset = "float-up" | "burst" | "spiral" | "side-float" | "confetti";
 type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
 export type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
@@ -177,9 +179,13 @@ interface ChatConfig {
   };
   animation: {
     enabled: boolean;
-    enterAnimation: ChatAnimationPreset;
-    exitAnimation: "none" | "fade" | "slide-up" | "slide-left" | "slide-right";
+    enterAnimation: ChatEnterAnimationPreset | ChatAnimationPreset;
+    exitAnimation: ChatExitAnimationPreset | "fade" | "slide-left" | "slide-right";
     durationMs: number;
+    enterDurationMs: number;
+    exitDurationMs: number;
+    reducedMotion: boolean;
+    emojiSupport: boolean;
   };
   theme: {
     fontFamily: string;

@@ -125,10 +125,18 @@ export function filterChat(message: ChatMessageEvent, config: ReturnType<typeof 
     }
     duplicates[key] = Date.now();
   }
-  if (text.length > filter.maxMessageLength) {
-    return { ...message, message: `${text.slice(0, filter.maxMessageLength)}...` };
+  if (Array.from(text).length > filter.maxMessageLength) {
+    return { ...message, message: `${truncateUnicode(text, filter.maxMessageLength)}...` };
   }
   return message;
+}
+
+function truncateUnicode(text: string, maxLength: number) {
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+    return Array.from(segmenter.segment(text), (part) => part.segment).slice(0, maxLength).join("");
+  }
+  return Array.from(text).slice(0, maxLength).join("");
 }
 
 export function trimMessages(messages: ChatMessageEvent[], max: number, newestPosition: "top" | "bottom") {
@@ -152,6 +160,65 @@ export function chatBoxStyle(position: ReturnType<typeof useAppStore.getState>["
     base.top = position.offsetY;
   }
   return base;
+}
+
+export function chatEnterAnimationClass(animation: string) {
+  switch (animation) {
+    case "fade-in":
+      return "animate-fade-in";
+    case "slide-in":
+      return "animate-slide-right";
+    case "pop-in":
+      return "animate-alert-pop";
+    case "bounce-in":
+      return "animate-alert-bounce";
+    case "glitch-in":
+      return "animate-chat-glitch-in";
+    case "pop":
+      return "animate-alert-pop";
+    case "stack-pop":
+      return "animate-stack-pop";
+    case "soft-drop":
+      return "animate-soft-drop";
+    case "slide-up":
+      return "animate-slide-up";
+    case "slide-left":
+      return "animate-slide-left";
+    case "slide-right":
+      return "animate-slide-right";
+    case "fade":
+      return "animate-fade-in";
+    default:
+      return "";
+  }
+}
+
+export function chatExitAnimationClass(animation: string) {
+  switch (animation) {
+    case "slide-up":
+      return "animate-chat-slide-up-out";
+    case "drift-away":
+      return "animate-chat-drift-away";
+    case "shrink-out":
+      return "animate-chat-shrink-out";
+    case "glitch-out":
+      return "animate-chat-glitch-out";
+    case "slide-left":
+      return "animate-chat-slide-left-out";
+    case "slide-right":
+      return "animate-chat-slide-right-out";
+    case "fade":
+    case "fade-out":
+      return "animate-chat-fade-out";
+    default:
+      return "";
+  }
+}
+
+export function chatFontStack(selectedFont: string, emojiSupport: boolean) {
+  const base = selectedFont && selectedFont !== "system" ? `"${selectedFont}"` : "system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\"";
+  const emoji = emojiSupport ? ", \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Noto Color Emoji\"" : "";
+  return `${base}, "Inter", "Noto Sans", "Noto Sans Thai", "Noto Sans JP", "Noto Sans KR", "Noto Sans SC", "Prompt", "Sarabun", "Kanit"${emoji}, sans-serif`;
 }
 
 export function playTone(type: AlertType, volume: number, preset: SoundPreset = "chime") {

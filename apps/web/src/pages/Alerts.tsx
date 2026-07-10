@@ -6,7 +6,7 @@ import { AlertRenderer } from "../components/alerts/AlertRenderer";
 import { saveConfig, testAlert, testChatMessage, uploadMedia } from "../services/api";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
 import type { AlertAnimationPreset, AlertEvent, AlertMediaPosition, AlertMediaType, AlertType, AlertVisualMode, AlertVisualTemplate, AppConfig, SoundPreset } from "../types";
-import { alertAnimations, alertVisualTemplates, buttonRowClass, chatAnimations, formGridClass, heartAnimations, panelClass, soundPresets, transparentPreviewClass, viewerAnimations } from "../config/constants";
+import { alertAnimations, alertVisualTemplates, buttonRowClass, chatEnterAnimations, formGridClass, heartAnimations, panelClass, soundPresets, transparentPreviewClass, viewerAnimations } from "../config/constants";
 import { playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
 
 const alertTypes: AlertType[] = ["follow", "share", "gift", "goal"];
@@ -81,7 +81,7 @@ function CommentChatConfig() {
       <div className={formGridClass}>
         <NumberInput label="Max visible messages" value={config.chat.queue.maxVisibleMessages} onChange={(maxVisibleMessages) => patchConfig({ chat: { queue: { maxVisibleMessages } } })} />
         <NumberInput label="Message lifetime ms" value={config.chat.queue.messageLifetimeMs} onChange={(messageLifetimeMs) => patchConfig({ chat: { queue: { messageLifetimeMs } } })} />
-        <SelectInput label="Enter animation" value={config.chat.animation.enterAnimation} options={chatAnimations} onChange={(enterAnimation) => patchConfig({ chat: { animation: { enterAnimation: enterAnimation as typeof config.chat.animation.enterAnimation } } })} />
+        <SelectInput label="Enter animation" value={config.chat.animation.enterAnimation} options={chatEnterAnimations} onChange={(enterAnimation) => patchConfig({ chat: { animation: { enterAnimation: enterAnimation as typeof config.chat.animation.enterAnimation } } })} />
       </div>
       <TextInput label="Test message" value={message} onChange={setMessage} />
       <div className={buttonRowClass}>
@@ -412,11 +412,12 @@ function LikeHeartsPreview() {
 function ViewerCountPreview() {
   const config = useAppStore((state) => state.config);
   const sampleViewerCount = 128;
+  const prefix = config.viewerCount.label.trim().replace(/^👁\s*/u, "");
 
   return (
     <div className={`absolute z-[5] transform-gpu rounded-full bg-black/50 px-4 py-2.5 text-white [text-shadow:0_2px_10px_rgba(0,0,0,0.35)] ${previewPositionClass(config.viewerCount.position)}`} style={{ fontSize: config.viewerCount.fontSize }}>
-      {config.viewerCount.showIcon ? "👁 " : null}
-      {config.viewerCount.label} {sampleViewerCount}
+      {prefix ? `${prefix} ` : null}
+      {sampleViewerCount}
     </div>
   );
 }
