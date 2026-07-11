@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Eye, Pause, Play, RefreshCw, Trash2, X } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
-import { Button, CopyRow, Toggle, TextArea, TextInput, NumberInput, RangeInput, SelectInput, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
+import { Button, CopyRow, Toggle, TextArea, TextInput, NumberInput, RangeInput, SelectInput, ModalPortal, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
 import { clearChat, pauseChat, resumeChat, blockChatUser, addBlacklistWord } from "../services/api";
 import type { AppConfig, ChatEnterAnimationPreset, ChatExitAnimationPreset } from "../types";
 import { buttonRowClass, chatEnterAnimations, chatExitAnimations, chatFontFamilies, panelClass, resolveCurrentWebUrl } from "../config/constants";
@@ -161,22 +161,24 @@ function ChatPreviewModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button className="absolute inset-0 animate-dialog-overlay bg-black/60 backdrop-blur-[2px]" aria-label="Close preview" onClick={onClose} />
-      <section className="relative grid w-full max-w-5xl animate-dialog-enter overflow-hidden rounded-lg bg-surface shadow-2xl ring-1 ring-surfaceMuted">
-        <header className="flex items-center justify-between gap-3 border-b border-surfaceMuted px-4 py-3">
-          <h3 className="text-base font-semibold text-text">Chat Widget Preview</h3>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" onClick={onReplay}><RefreshCw size={16} />Restart loop</Button>
-            <Button variant="secondary" className="h-10 w-10 px-0" aria-label="Close preview" onClick={onClose}><X size={16} /></Button>
+    <ModalPortal>
+      <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4">
+        <button className="absolute inset-0 animate-dialog-overlay bg-black/60 backdrop-blur-[2px]" aria-label="Close preview" onClick={onClose} />
+        <section className="relative grid w-full max-w-5xl animate-dialog-enter overflow-hidden rounded-lg bg-surface shadow-2xl ring-1 ring-surfaceMuted">
+          <header className="flex items-center justify-between gap-3 border-b border-surfaceMuted px-4 py-3">
+            <h3 className="text-base font-semibold text-text">Chat Widget Preview</h3>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" onClick={onReplay}><RefreshCw size={16} />Restart loop</Button>
+              <Button type="button" variant="danger" size="icon" aria-label="Close preview" onClick={onClose}><X size={16} /></Button>
+            </div>
+          </header>
+          <div className="bg-[#141414] p-4 sm:p-5">
+            <div className="relative h-[560px] overflow-hidden bg-[linear-gradient(135deg,rgba(255,255,255,0.08)_25%,transparent_25%),linear-gradient(225deg,rgba(255,255,255,0.08)_25%,transparent_25%),linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%),linear-gradient(315deg,rgba(255,255,255,0.08)_25%,#1f1f1f_25%)] bg-[length:32px_32px] bg-[position:16px_0,16px_0,0_0,0_0]">
+              <ChatPreviewWidget key={replayKey} config={config} />
+            </div>
           </div>
-        </header>
-        <div className="bg-[#141414] p-4 sm:p-5">
-          <div className="relative h-[560px] overflow-hidden bg-[linear-gradient(135deg,rgba(255,255,255,0.08)_25%,transparent_25%),linear-gradient(225deg,rgba(255,255,255,0.08)_25%,transparent_25%),linear-gradient(45deg,rgba(255,255,255,0.08)_25%,transparent_25%),linear-gradient(315deg,rgba(255,255,255,0.08)_25%,#1f1f1f_25%)] bg-[length:32px_32px] bg-[position:16px_0,16px_0,0_0,0_0]">
-            <ChatPreviewWidget key={replayKey} config={config} />
-          </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </ModalPortal>
   );
 }

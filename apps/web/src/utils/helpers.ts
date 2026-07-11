@@ -301,10 +301,9 @@ export function routeTitle(path: string) {
   const titles: Record<string, string> = {
     "/dashboard": "Dashboard",
     "/connection": "TikTok Connection",
-    "/alerts": "Alerts",
+    "/alerts": "Alert Overlay",
     "/goals": "Goals",
     "/chat": "Chat Overlay",
-    "/overlay": "Overlay",
     "/tts": "TTS",
     "/sounds": "Sounds",
     "/logs": "Logs",

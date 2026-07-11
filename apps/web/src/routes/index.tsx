@@ -5,7 +5,6 @@ import { ConnectionPage } from "../pages/Connection";
 import { DashboardPage } from "../pages/Dashboard";
 import { GoalsPage } from "../pages/Goals";
 import { LogsPage } from "../pages/Logs";
-import { OverlayConfigPage } from "../pages/OverlayConfig";
 import { SettingsPage } from "../pages/Settings";
 import { SoundsPage } from "../pages/Sounds";
 import { TtsPage } from "../pages/Tts";
@@ -57,8 +56,6 @@ function renderPage(path: string) {
       return <GoalsPage />;
     case "/chat":
       return <ChatPage />;
-    case "/overlay":
-      return <OverlayConfigPage />;
     case "/tts":
       return <TtsPage />;
     case "/sounds":

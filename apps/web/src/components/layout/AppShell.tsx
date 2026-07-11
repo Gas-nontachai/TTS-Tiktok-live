@@ -2,8 +2,9 @@ import { useState } from "react";
 import { useAppStore } from "../../stores/appStore";
 import { statusChipClasses, routeTitle } from "../../utils/helpers";
 import { NavGroup } from "./NavGroup";
-import { Radio, LayoutDashboard, Bell, MessageCircle, Eye, Mic, Volume2, Activity, Settings, Menu, X, Trophy } from "lucide-react";
+import { Radio, LayoutDashboard, Bell, MessageCircle, Mic, Volume2, Activity, Settings, Menu, X, Trophy } from "lucide-react";
 import { cn } from "../../lib/utils";
+import { Button } from "../ui";
 
 export function AppShell({ children, path }: { children: React.ReactNode; path: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -26,24 +27,25 @@ export function AppShell({ children, path }: { children: React.ReactNode; path: 
               <Radio size={22} className="shrink-0" />
               <span className="truncate">TikTok Live Suite</span>
             </div>
-            <button
+            <Button
               type="button"
+              variant="danger"
+              size="icon"
               aria-label="Close sidebar"
               title="Close sidebar"
               onClick={() => setSidebarOpen(false)}
-              className="min-h-0 rounded-lg border-surfaceMuted bg-white p-2 text-text transition duration-150 ease-out hover:rotate-90 hover:bg-surfaceMuted focus:outline-none focus:ring-2 focus:ring-sage active:scale-95"
+              className="hover:rotate-90"
             >
               <X size={18} />
-            </button>
+            </Button>
           </div>
           <NavGroup title="Main" items={[["/dashboard", "Dashboard", LayoutDashboard], ["/connection", "Connection", Radio]]} path={path} />
           <NavGroup
             title="Streaming"
             items={[
-              ["/alerts", "Alerts", Bell],
+              ["/alerts", "Alert Overlay", Bell],
               ["/goals", "Goals", Trophy],
               ["/chat", "Chat", MessageCircle],
-              ["/overlay", "Overlay", Eye],
               ["/tts", "TTS", Mic],
               ["/sounds", "Sounds", Volume2]
             ]}
@@ -56,15 +58,17 @@ export function AppShell({ children, path }: { children: React.ReactNode; path: 
         <header className="flex flex-col justify-between gap-4 border-b border-surfaceMuted pb-4 md:flex-row md:items-center">
           <div className="flex items-start gap-3">
             {!sidebarOpen ? (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="icon"
                 aria-label="Open sidebar"
                 title="Open sidebar"
                 onClick={() => setSidebarOpen(true)}
-                className="min-h-0 shrink-0 animate-sidebar-toggle rounded-lg border-surfaceMuted bg-white p-2 text-text transition duration-150 ease-out hover:bg-surfaceMuted focus:outline-none focus:ring-2 focus:ring-sage active:scale-95"
+                className="shrink-0 animate-sidebar-toggle"
               >
                 <Menu size={20} />
-              </button>
+              </Button>
             ) : null}
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-text">{routeTitle(path)}</h1>

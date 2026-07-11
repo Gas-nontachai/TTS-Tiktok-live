@@ -1,13 +1,32 @@
 import { useEffect, useState, type CSSProperties } from "react";
-import { Upload } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
-import { Button, Toggle, TextInput, NumberInput, RangeInput, SelectInput, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
+import { Button, CopyRow, Toggle, TextInput, NumberInput, RangeInput, SelectInput, ModalPortal, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
 import { AlertRenderer } from "../components/alerts/AlertRenderer";
 import { ChatPreviewWidget } from "../components/chat/ChatPreviewWidget";
 import { saveConfig, testAlert, testChatMessage, uploadMedia } from "../services/api";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
 import type { AlertAnimationPreset, AlertEvent, AlertMediaPosition, AlertMediaType, AlertType, AlertVisualMode, AlertVisualTemplate, AppConfig, SoundPreset } from "../types";
-import { alertAnimations, alertVisualTemplates, buttonRowClass, chatEnterAnimations, formGridClass, heartAnimations, panelClass, soundPresets, transparentPreviewClass, viewerAnimations } from "../config/constants";
+import {
+  alertAnimations,
+  alertVisualTemplates,
+  buttonRowClass,
+  chatEnterAnimations,
+  formGridClass,
+  heartAnimations,
+  overlayAlertsUrl,
+  overlayGoalsUrl,
+  overlayHeartsUrl,
+  overlayMainUrl,
+  overlayTtsUrl,
+  overlayViewerCountUrl,
+  panelClass,
+  resolveCurrentWebUrl,
+  soundPresets,
+  transparentPreviewClass,
+  ttsPlayerUrl,
+  viewerAnimations
+} from "../config/constants";
 import { playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
 
 const alertTypes: AlertType[] = ["follow", "share", "gift", "goal"];
@@ -40,7 +59,11 @@ function LikeHeartsConfig() {
 
   return (
     <section className={panelClass}>
-      <h2>Like Hearts</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2>Like Hearts</h2>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
+      </div>
+      <CopyRow label="Hearts Overlay URL" value={overlayHeartsUrl} />
       <div className="flex flex-wrap items-center gap-3">
         <Toggle label="Show hearts" checked={config.overlay.showHearts} onChange={(showHearts) => patchConfig({ overlay: { showHearts } })} />
         <Toggle label="Enabled" checked={config.likeHearts.enabled} onChange={(enabled) => patchConfig({ likeHearts: { enabled } })} />
@@ -55,7 +78,6 @@ function LikeHeartsConfig() {
       </div>
       <div className={buttonRowClass}>
         <Button onClick={() => void testAlert("like")}>Test Like Hearts</Button>
-        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button onClick={() => void saveConfig(config)}>Save Alerts</Button>
       </div>
       <AlertPreviewModal open={previewOpen} target="like" onClose={() => setPreviewOpen(false)} />
@@ -71,7 +93,11 @@ function ChatConfigSection() {
 
   return (
     <section className={panelClass}>
-      <h2>Chat</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2>Chat</h2>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
+      </div>
+      <CopyRow label="Chat Overlay URL" value={resolveCurrentWebUrl(config.chat.overlayUrl, "/overlay/chat")} />
       <div className="flex flex-wrap items-center gap-3">
         <Toggle label="Enable chat overlay" checked={config.chat.enabled} onChange={(enabled) => patchConfig({ chat: { enabled } })} />
         <Toggle label="Show avatar" checked={config.chat.display.showAvatar} onChange={(showAvatar) => patchConfig({ chat: { display: { showAvatar } } })} />
@@ -86,7 +112,6 @@ function ChatConfigSection() {
       <TextInput label="Test message" value={message} onChange={setMessage} />
       <div className={buttonRowClass}>
         <Button onClick={() => void testChatMessage(message)}>Test Chat</Button>
-        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button onClick={() => void saveConfig(config)}>Save Chat</Button>
       </div>
       <AlertPreviewModal open={previewOpen} target="chat" onClose={() => setPreviewOpen(false)} />
@@ -101,7 +126,11 @@ function ViewerCountConfig() {
 
   return (
     <section className={panelClass}>
-      <h2>Viewer Count</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2>Viewer Count</h2>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
+      </div>
+      <CopyRow label="Viewer Count Overlay URL" value={overlayViewerCountUrl} />
       <div className="flex flex-wrap items-center gap-3">
         <Toggle label="Show viewer count" checked={config.overlay.showViewerCount} onChange={(showViewerCount) => patchConfig({ overlay: { showViewerCount } })} />
         <Toggle label="Enabled" checked={config.viewerCount.enabled} onChange={(enabled) => patchConfig({ viewerCount: { enabled } })} />
@@ -114,7 +143,6 @@ function ViewerCountConfig() {
       </div>
       <div className={buttonRowClass}>
         <Button onClick={() => void testAlert("viewer-count")}>Test Viewer Count</Button>
-        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button onClick={() => void saveConfig(config)}>Save Alerts</Button>
       </div>
       <AlertPreviewModal open={previewOpen} target="viewer-count" onClose={() => setPreviewOpen(false)} />
@@ -153,7 +181,12 @@ function AlertConfig({ type }: { type: AlertType }) {
 
   return (
     <section className={panelClass}>
-      <h2>{typeLabel(type)} Alert</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2>{typeLabel(type)} Alert</h2>
+        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
+      </div>
+      <CopyRow label={`${typeLabel(type)} Alert Overlay URL`} value={overlayAlertsUrl} />
+      {type === "goal" ? <CopyRow label="Goals Overlay URL" value={overlayGoalsUrl} /> : null}
       <div className="flex items-center gap-3 whitespace-nowrap">
         <Toggle label="Enabled" checked={alertConfig.enabled} onChange={(enabled) => patchConfig({ alerts: { [type]: { enabled } } })} />
         <Toggle label="Play sound" checked={alertConfig.playSound} onChange={(playSound) => patchConfig({ alerts: { [type]: { playSound } } })} />
@@ -252,7 +285,6 @@ function AlertConfig({ type }: { type: AlertType }) {
 
       <div className={buttonRowClass}>
         <Button onClick={() => void testAlertWithTtsPreview()}>Test {typeLabel(type)}</Button>
-        <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button variant="secondary" onClick={() => playAlertSound(type, config)}>Preview Sound</Button>
       </div>
       <AlertPreviewModal open={previewOpen} target={type} onClose={() => setPreviewOpen(false)} />
@@ -281,6 +313,30 @@ function AlertConfig({ type }: { type: AlertType }) {
       patchConfig({ sounds: { giftPreset: preset } });
     }
   }
+}
+
+function OverlayConfigSection() {
+  const config = useAppStore((state) => state.config);
+  const patchConfig = useAppStore((state) => state.patchConfig);
+
+  return (
+    <section className={panelClass}>
+      <h2>Overlay Config</h2>
+      <CopyRow label="Combined Preview URL" value={overlayMainUrl} />
+      <CopyRow label="TTS Player URL" value={ttsPlayerUrl} />
+      <CopyRow label="Deprecated TTS Overlay URL" value={overlayTtsUrl} />
+      <div className="flex flex-wrap items-center gap-3">
+        <Toggle label="Show alerts" checked={config.overlay.showAlerts} onChange={(showAlerts) => patchConfig({ overlay: { showAlerts } })} />
+        <Toggle label="Show goals" checked={config.overlay.showGoals} onChange={(showGoals) => patchConfig({ overlay: { showGoals } })} />
+        <Toggle label="Show viewer count" checked={config.overlay.showViewerCount} onChange={(showViewerCount) => patchConfig({ overlay: { showViewerCount } })} />
+        <Toggle label="Show hearts" checked={config.overlay.showHearts} onChange={(showHearts) => patchConfig({ overlay: { showHearts } })} />
+        <Toggle label="Include chat in combined preview" checked={config.overlay.showChatInMain} onChange={(showChatInMain) => patchConfig({ overlay: { showChatInMain } })} />
+      </div>
+      <div className={buttonRowClass}>
+        <Button onClick={() => void saveConfig(config)}>Save Overlay Settings</Button>
+      </div>
+    </section>
+  );
 }
 
 function TemplateGallery({
@@ -352,43 +408,45 @@ function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: P
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center p-4">
-      <button className="absolute inset-0 bg-black/55 backdrop-blur-sm" type="button" aria-label="Close preview" onClick={onClose} />
-      <section className="relative grid w-full max-w-6xl gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-4 shadow-2xl">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2>{target === "viewer-count" ? "Viewer Count" : target === "chat" ? "Chat" : typeLabel(target)} Preview</h2>
-            <p className="text-sm text-textMuted">Preview นี้ใช้ renderer กลางของ widget เดียวกัน</p>
+    <ModalPortal>
+      <div className="fixed inset-0 z-[2147483647] grid place-items-center p-4">
+        <button className="absolute inset-0 bg-black/55 backdrop-blur-sm" type="button" aria-label="Close preview" onClick={onClose} />
+        <section className="relative grid w-full max-w-6xl gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-4 shadow-2xl">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2>{target === "viewer-count" ? "Viewer Count" : target === "chat" ? "Chat" : typeLabel(target)} Preview</h2>
+              <p className="text-sm text-textMuted">Preview นี้ใช้ renderer กลางของ widget เดียวกัน</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(["16:9", "9:16"] as const).map((nextRatio) => (
+                <Button key={nextRatio} type="button" variant={ratio === nextRatio ? "primary" : "secondary"} onClick={() => setRatio(nextRatio)}>
+                  {nextRatio}
+                </Button>
+              ))}
+              {previewBackgrounds.map((background) => (
+                <Button key={background.id} type="button" variant={backgroundId === background.id ? "primary" : "secondary"} onClick={() => setBackgroundId(background.id)}>
+                  {background.label}
+                </Button>
+              ))}
+              <Button type="button" variant="danger" size="icon" aria-label="Close preview" onClick={onClose}><X size={16} /></Button>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {(["16:9", "9:16"] as const).map((nextRatio) => (
-              <Button key={nextRatio} type="button" variant={ratio === nextRatio ? "primary" : "secondary"} onClick={() => setRatio(nextRatio)}>
-                {nextRatio}
-              </Button>
-            ))}
-            {previewBackgrounds.map((background) => (
-              <Button key={background.id} type="button" variant={backgroundId === background.id ? "primary" : "secondary"} onClick={() => setBackgroundId(background.id)}>
-                {background.label}
-              </Button>
-            ))}
-            <Button type="button" variant="secondary" onClick={onClose}>Close</Button>
+          <div className={`grid place-items-center rounded-lg p-3 ${target === "chat" ? "bg-[#141414]" : previewBackground.className}`}>
+            <div className={`relative w-full overflow-hidden rounded-md bg-transparent ${ratio === "16:9" ? "aspect-video max-w-5xl" : "aspect-[9/16] max-h-[70vh] max-w-sm"}`}>
+              {previewEvent && alertConfig ? (
+                <AlertRenderer key={`${previewEvent.id}-${ratio}`} event={previewEvent} alertConfig={alertConfig} position={config.overlay.alertPosition} />
+              ) : target === "chat" ? (
+                <ChatPreviewWidget key={`chat-${ratio}`} config={config} />
+              ) : target === "like" ? (
+                <LikeHeartsPreview key={`like-${ratio}`} />
+              ) : (
+                <ViewerCountPreview />
+              )}
+            </div>
           </div>
-        </div>
-        <div className={`grid place-items-center rounded-lg p-3 ${target === "chat" ? "bg-[#141414]" : previewBackground.className}`}>
-          <div className={`relative w-full overflow-hidden rounded-md bg-transparent ${ratio === "16:9" ? "aspect-video max-w-5xl" : "aspect-[9/16] max-h-[70vh] max-w-sm"}`}>
-            {previewEvent && alertConfig ? (
-              <AlertRenderer key={`${previewEvent.id}-${ratio}`} event={previewEvent} alertConfig={alertConfig} position={config.overlay.alertPosition} />
-            ) : target === "chat" ? (
-              <ChatPreviewWidget key={`chat-${ratio}`} config={config} />
-            ) : target === "like" ? (
-              <LikeHeartsPreview key={`like-${ratio}`} />
-            ) : (
-              <ViewerCountPreview />
-            )}
-          </div>
-        </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </ModalPortal>
   );
 }
 
@@ -560,6 +618,7 @@ export function AlertsPage() {
           <TabsTrigger key={type} value={type}>{typeLabel(type)}</TabsTrigger>
         ))}
         <TabsTrigger value="queue">Queue</TabsTrigger>
+        <TabsTrigger value="config">Config</TabsTrigger>
       </TabsList>
       <TabsContent value="like">
         <LikeHeartsConfig />
@@ -588,6 +647,9 @@ export function AlertsPage() {
             <Button variant="secondary" onClick={() => window.dispatchEvent(new CustomEvent("skip-alert"))}>Skip Current Alert</Button>
           </div>
         </section>
+      </TabsContent>
+      <TabsContent value="config">
+        <OverlayConfigSection />
       </TabsContent>
     </Tabs>
   );

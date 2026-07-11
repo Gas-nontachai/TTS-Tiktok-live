@@ -2,6 +2,7 @@ import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "../../lib/utils";
+import Button from "./Button";
 
 const Tabs = TabsPrimitive.Root;
 
@@ -59,15 +60,17 @@ function TabsList({
   return (
     <div className={cn("relative grid items-end border-b border-surfaceMuted", hasOverflow ? "grid-cols-[auto_minmax(0,1fr)_auto]" : "grid-cols-1")}>
       {hasOverflow ? (
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="icon"
           aria-label="Scroll tabs left"
           onClick={() => scrollTabs("left")}
           disabled={!canScrollLeft}
-          className="mb-0 mr-1 h-9 w-9 shrink-0 rounded-md border border-surfaceMuted bg-white/70 p-0 text-text shadow-none transition hover:border-[#b7b0a1] hover:bg-white hover:text-text disabled:cursor-not-allowed disabled:opacity-35"
+          className="mb-0 mr-1 h-9 w-9 shrink-0 bg-white/70 hover:border-[#b7b0a1] hover:bg-white disabled:opacity-35"
         >
           <ChevronLeft size={18} />
-        </button>
+        </Button>
       ) : null}
       <div
         ref={scrollRef}
@@ -83,15 +86,17 @@ function TabsList({
         />
       </div>
       {hasOverflow ? (
-        <button
+        <Button
           type="button"
+          variant="secondary"
+          size="icon"
           aria-label="Scroll tabs right"
           onClick={() => scrollTabs("right")}
           disabled={!canScrollRight}
-          className="mb-0 ml-1 h-9 w-9 shrink-0 rounded-md border border-surfaceMuted bg-white/70 p-0 text-text shadow-none transition hover:border-[#b7b0a1] hover:bg-white hover:text-text disabled:cursor-not-allowed disabled:opacity-35"
+          className="mb-0 ml-1 h-9 w-9 shrink-0 bg-white/70 hover:border-[#b7b0a1] hover:bg-white disabled:opacity-35"
         >
           <ChevronRight size={18} />
-        </button>
+        </Button>
       ) : null}
     </div>
   );
