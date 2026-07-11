@@ -16,6 +16,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      soundSource: "default",
+      soundPreset: "pop",
       visualMode: "custom",
       visualTemplate: "minimal-toast",
       template: "{likeCount} likes from {displayName}",
@@ -40,6 +42,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      soundSource: "default",
+      soundPreset: "chime",
       visualMode: "custom",
       visualTemplate: "minimal-toast",
       template: "{displayName}: {message}",
@@ -64,6 +68,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      soundSource: "default",
+      soundPreset: "chime",
       visualMode: "template",
       visualTemplate: "neon-pop",
       template: "{username} แชร์ไลฟ์แล้ว ขอบคุณมากครับ",
@@ -88,6 +94,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      soundSource: "default",
+      soundPreset: "soft-bell",
       visualMode: "template",
       visualTemplate: "big-shoutout",
       template: "ขอบคุณ {username} ที่กดติดตามครับ",
@@ -112,6 +120,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      soundSource: "default",
+      soundPreset: "coin",
       visualMode: "template",
       visualTemplate: "gift-pop",
       template: "ขอบคุณ {username} สำหรับ {giftName} x{giftCount}",
@@ -139,6 +149,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      soundSource: "default",
+      soundPreset: "sparkle",
       visualMode: "template",
       visualTemplate: "goal-complete",
       template: "{goalTitle} complete: {currentValue}/{targetValue}",
@@ -203,13 +215,8 @@ export const defaultConfig: AppConfig = {
   },
   sounds: {
     enabled: true,
-    masterVolume: 0.9,
-    shareVolume: 0.8,
-    followVolume: 0.8,
-    giftVolume: 0.9,
-    sharePreset: "chime",
-    followPreset: "soft-bell",
-    giftPreset: "coin"
+    muted: false,
+    masterVolume: 0.9
   },
   overlay: {
     showAlerts: true,
@@ -324,6 +331,7 @@ const chatExitAnimationSchema = z.enum(["none", "fade-out", "slide-up", "drift-a
 const heartAnimationSchema = z.enum(["float-up", "burst", "spiral", "side-float", "confetti"]);
 const viewerAnimationSchema = z.enum(["none", "fade", "pulse", "count-pop"]);
 const soundPresetSchema = z.enum(["none", "chime", "pop", "sparkle", "coin", "soft-bell", "digital"]);
+const alertSoundSourceSchema = z.enum(["default", "preset", "custom"]);
 const mediaTypeSchema = z.enum(["image", "gif", "webp"]);
 const mediaPositionSchema = z.enum(["top", "bottom", "left", "right"]);
 const alertVisualModeSchema = z.enum(["template", "custom"]);
@@ -336,6 +344,8 @@ const alertSchema = z.object({
   enabled: z.boolean(),
   playSound: z.boolean(),
   ttsEnabled: z.boolean(),
+  soundSource: alertSoundSourceSchema,
+  soundPreset: soundPresetSchema,
   visualMode: alertVisualModeSchema,
   visualTemplate: alertVisualTemplateSchema,
   template: z.string().min(1),
@@ -429,13 +439,14 @@ const configSchema = z.object({
   }),
   sounds: z.object({
     enabled: z.boolean(),
+    muted: z.boolean().default(false),
     masterVolume: z.number().min(0).max(1),
-    shareVolume: z.number().min(0).max(1),
-    followVolume: z.number().min(0).max(1),
-    giftVolume: z.number().min(0).max(1),
-    sharePreset: soundPresetSchema,
-    followPreset: soundPresetSchema,
-    giftPreset: soundPresetSchema
+    shareVolume: z.number().min(0).max(1).optional(),
+    followVolume: z.number().min(0).max(1).optional(),
+    giftVolume: z.number().min(0).max(1).optional(),
+    sharePreset: soundPresetSchema.optional(),
+    followPreset: soundPresetSchema.optional(),
+    giftPreset: soundPresetSchema.optional()
   }),
   overlay: z.object({
     showAlerts: z.boolean(),
@@ -525,6 +536,8 @@ async function ensureDataDir() {
 function mergeConfig(raw: unknown): AppConfig {
   const existing = typeof raw === "object" && raw ? (raw as Record<string, unknown>) : {};
   const legacyTts = (existing.tts as Record<string, unknown> | undefined) ?? {};
+  const existingAlerts = existing.alerts as { [K in keyof AppConfig["alerts"]]?: object } | undefined;
+  const legacySounds = (existing.sounds as Record<string, unknown> | undefined) ?? {};
 
   return configSchema.parse({
     ...defaultConfig,
@@ -536,12 +549,12 @@ function mergeConfig(raw: unknown): AppConfig {
     alerts: {
       ...defaultConfig.alerts,
       ...(existing.alerts as object | undefined),
-      like: mergeAlertConfig(defaultConfig.alerts.like, (existing.alerts as { like?: object } | undefined)?.like),
-      comment: mergeAlertConfig(defaultConfig.alerts.comment, (existing.alerts as { comment?: object } | undefined)?.comment),
-      share: mergeAlertConfig(defaultConfig.alerts.share, (existing.alerts as { share?: object } | undefined)?.share),
-      follow: mergeAlertConfig(defaultConfig.alerts.follow, (existing.alerts as { follow?: object } | undefined)?.follow),
-      gift: mergeAlertConfig(defaultConfig.alerts.gift, (existing.alerts as { gift?: object } | undefined)?.gift),
-      goal: mergeAlertConfig(defaultConfig.alerts.goal, (existing.alerts as { goal?: object } | undefined)?.goal)
+      like: mergeAlertConfig("like", defaultConfig.alerts.like, existingAlerts?.like, legacySounds),
+      comment: mergeAlertConfig("comment", defaultConfig.alerts.comment, existingAlerts?.comment, legacySounds),
+      share: mergeAlertConfig("share", defaultConfig.alerts.share, existingAlerts?.share, legacySounds),
+      follow: mergeAlertConfig("follow", defaultConfig.alerts.follow, existingAlerts?.follow, legacySounds),
+      gift: mergeAlertConfig("gift", defaultConfig.alerts.gift, existingAlerts?.gift, legacySounds),
+      goal: mergeAlertConfig("goal", defaultConfig.alerts.goal, existingAlerts?.goal, legacySounds)
     },
     alertQueue: {
       ...defaultConfig.alertQueue,
@@ -564,7 +577,8 @@ function mergeConfig(raw: unknown): AppConfig {
     },
     sounds: {
       ...defaultConfig.sounds,
-      ...(existing.sounds as object | undefined)
+      ...(existing.sounds as object | undefined),
+      muted: typeof legacySounds.muted === "boolean" ? legacySounds.muted : defaultConfig.sounds.muted
     },
     overlay: {
       ...defaultConfig.overlay,
@@ -606,21 +620,62 @@ function mergeConfig(raw: unknown): AppConfig {
   }) as AppConfig;
 }
 
-function mergeAlertConfig<T extends AppConfig["alerts"][keyof AppConfig["alerts"]]>(defaults: T, raw: object | undefined): T {
+function mergeAlertConfig<T extends AppConfig["alerts"][keyof AppConfig["alerts"]]>(
+  type: keyof AppConfig["alerts"],
+  defaults: T,
+  raw: object | undefined,
+  legacySounds: Record<string, unknown>
+): T {
   if (!raw) {
     return defaults;
   }
 
-  const existing = raw as Partial<T> & { visualMode?: unknown; visualTemplate?: unknown };
+  const existing = raw as Partial<T> & { visualMode?: unknown; visualTemplate?: unknown; soundSource?: unknown; soundPreset?: unknown };
   const legacyVisualFallback = existing.visualMode === undefined
     ? { visualMode: "custom" as const, visualTemplate: "minimal-toast" as const }
+    : {};
+  const legacySoundFallback = existing.soundSource === undefined || existing.soundPreset === undefined
+    ? legacyAlertSoundFallback(type, existing, legacySounds)
     : {};
 
   return {
     ...defaults,
     ...existing,
-    ...legacyVisualFallback
+    ...legacyVisualFallback,
+    ...legacySoundFallback
   };
+}
+
+function legacyAlertSoundFallback(
+  type: keyof AppConfig["alerts"],
+  existing: Partial<AppConfig["alerts"][keyof AppConfig["alerts"]]>,
+  legacySounds: Record<string, unknown>
+) {
+  const legacyPreset = legacySoundPresetFor(type, legacySounds);
+  const legacyVolume = existing.volume === undefined ? legacySoundVolumeFor(type, legacySounds) : undefined;
+  const hasCustomSound = typeof existing.soundUrl === "string" && existing.soundUrl.trim().length > 0;
+
+  return {
+    soundSource: hasCustomSound ? "custom" as const : "default" as const,
+    ...(legacyPreset ? { soundPreset: legacyPreset } : {}),
+    ...(legacyVolume === undefined ? {} : { volume: Math.round(legacyVolume * 100) })
+  };
+}
+
+function legacySoundPresetFor(type: keyof AppConfig["alerts"], legacySounds: Record<string, unknown>): AppConfig["alerts"][keyof AppConfig["alerts"]]["soundPreset"] | undefined {
+  const key = type === "gift" ? "giftPreset" : type === "follow" ? "followPreset" : "sharePreset";
+  const value = legacySounds[key];
+  return isSoundPreset(value) ? value : undefined;
+}
+
+function legacySoundVolumeFor(type: keyof AppConfig["alerts"], legacySounds: Record<string, unknown>) {
+  const key = type === "gift" ? "giftVolume" : type === "follow" ? "followVolume" : "shareVolume";
+  const value = legacySounds[key];
+  return typeof value === "number" ? Math.max(0, Math.min(1, value)) : undefined;
+}
+
+function isSoundPreset(value: unknown): value is AppConfig["alerts"][keyof AppConfig["alerts"]]["soundPreset"] {
+  return value === "none" || value === "chime" || value === "pop" || value === "sparkle" || value === "coin" || value === "soft-bell" || value === "digital";
 }
 
 function normalizeAiThaiVoice(value: unknown): AppConfig["tts"]["aiThaiVoice"] {

@@ -1,4 +1,4 @@
-import type { AlertEvent, AlertType, ChatMessageEvent, OverlayEvent, SoundPreset } from "../types";
+import type { AlertEvent, AlertSoundSource, AlertType, ChatMessageEvent, OverlayEvent, SoundPreset } from "../types";
 import { useAppStore } from "../stores/appStore";
 
 export function renderTemplate(template: string, event: Partial<AlertEvent | ChatMessageEvent>) {
@@ -70,12 +70,12 @@ export function claimRecentKey(recent: Record<string, number>, key: string, ttlM
   return true;
 }
 
-export function soundPresetFor(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]): SoundPreset {
+export function defaultSoundPresetFor(type: AlertType): SoundPreset {
   if (type === "gift") {
-    return config.sounds.giftPreset;
+    return "coin";
   }
   if (type === "follow") {
-    return config.sounds.followPreset;
+    return "soft-bell";
   }
   if (type === "like") {
     return "pop";
@@ -83,13 +83,31 @@ export function soundPresetFor(type: AlertType, config: ReturnType<typeof useApp
   if (type === "goal") {
     return "sparkle";
   }
-  return config.sounds.sharePreset;
+  return "chime";
+}
+
+export function effectiveSoundSourceFor(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]): AlertSoundSource {
+  const alertConfig = config.alerts[type];
+  if (alertConfig.soundSource === "custom" && alertConfig.soundUrl.trim()) {
+    return "custom";
+  }
+  if (alertConfig.soundSource === "preset") {
+    return "preset";
+  }
+  return "default";
+}
+
+export function soundPresetFor(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]): SoundPreset {
+  const alertConfig = config.alerts[type];
+  return effectiveSoundSourceFor(type, config) === "preset" ? alertConfig.soundPreset : defaultSoundPresetFor(type);
 }
 
 export function alertVolumeFor(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]) {
-  const configuredVolume = config.alerts[type]?.volume;
-  const presetVolume = type === "gift" ? config.sounds.giftVolume : type === "follow" ? config.sounds.followVolume : config.sounds.shareVolume;
-  return ((configuredVolume ?? presetVolume * 100) / 100) * config.sounds.masterVolume;
+  return (config.alerts[type].volume / 100) * config.sounds.masterVolume;
+}
+
+export function canPlayAlertSound(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]) {
+  return config.sounds.enabled && !config.sounds.muted && config.alerts[type].playSound;
 }
 
 export function filterChat(message: ChatMessageEvent, config: ReturnType<typeof useAppStore.getState>["config"], duplicates: Record<string, number>) {
@@ -275,8 +293,11 @@ export function playTone(type: AlertType, volume: number, preset: SoundPreset = 
 
 export function playAlertSound(type: AlertType, config: ReturnType<typeof useAppStore.getState>["config"]) {
   const alertConfig = config.alerts[type];
+  if (!canPlayAlertSound(type, config)) {
+    return;
+  }
   const volume = alertVolumeFor(type, config);
-  if (alertConfig.soundUrl) {
+  if (effectiveSoundSourceFor(type, config) === "custom" && alertConfig.soundUrl.trim()) {
     const audio = new Audio(alertConfig.soundUrl);
     audio.volume = Math.max(0, Math.min(1, volume));
     void audio.play().catch(() => undefined);
@@ -305,7 +326,7 @@ export function routeTitle(path: string) {
     "/goals": "Goals",
     "/chat": "Chat Overlay",
     "/tts": "TTS",
-    "/sounds": "Sounds",
+    "/sounds": "Audio Settings",
     "/logs": "Logs",
     "/settings": "Settings"
   };

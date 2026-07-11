@@ -6,7 +6,7 @@ import { AlertRenderer } from "../components/alerts/AlertRenderer";
 import { ChatPreviewWidget } from "../components/chat/ChatPreviewWidget";
 import { saveConfig, testAlert, testChatMessage, uploadMedia } from "../services/api";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
-import type { AlertAnimationPreset, AlertEvent, AlertMediaPosition, AlertMediaType, AlertType, AlertVisualMode, AlertVisualTemplate, AppConfig, SoundPreset } from "../types";
+import type { AlertAnimationPreset, AlertEvent, AlertMediaPosition, AlertMediaType, AlertSoundSource, AlertType, AlertVisualMode, AlertVisualTemplate, AppConfig, SoundPreset } from "../types";
 import {
   alertAnimations,
   alertVisualTemplates,
@@ -27,9 +27,9 @@ import {
   ttsPlayerUrl,
   viewerAnimations
 } from "../config/constants";
-import { playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
+import { alertVolumeFor, defaultSoundPresetFor, effectiveSoundSourceFor, playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
 
-const alertTypes: AlertType[] = ["follow", "share", "gift", "goal"];
+const alertTypes: AlertType[] = ["follow", "share", "gift", "like", "goal"];
 const mediaPositions: AlertMediaPosition[] = ["left", "right", "top", "bottom"];
 const mediaTypes: AlertMediaType[] = ["image", "gif", "webp"];
 type AlertConfigValue = AppConfig["alerts"][keyof AppConfig["alerts"]];
@@ -159,6 +159,11 @@ function AlertConfig({ type }: { type: AlertType }) {
   const alertConfig = config.alerts[type];
   const visualMode = alertConfig.visualMode ?? "custom";
   const visualTemplate = alertConfig.visualTemplate ?? "minimal-toast";
+  const effectiveSoundSource = effectiveSoundSourceFor(type, config);
+  const effectiveVolume = alertVolumeFor(type, config);
+  const effectiveVolumeLabel = `${Math.round(effectiveVolume * 100)}%`;
+  const soundStatus = getSoundStatus(type, config);
+  const isGloballyMuted = !config.sounds.enabled || config.sounds.muted;
 
   async function handleUpload(file: File | undefined, kind: "sound" | "media") {
     if (!file) {
@@ -168,7 +173,7 @@ function AlertConfig({ type }: { type: AlertType }) {
     try {
       const result = await uploadMedia(file);
       if (kind === "sound") {
-        patchConfig({ alerts: { [type]: { soundUrl: result.url } } });
+        patchConfig({ alerts: { [type]: { soundSource: "custom", soundUrl: result.url } } });
       } else {
         const extension = file.name.split(".").pop()?.toLowerCase();
         const mediaType = extension === "gif" ? "gif" : extension === "webp" ? "webp" : "image";
@@ -261,15 +266,55 @@ function AlertConfig({ type }: { type: AlertType }) {
 
       <section className="grid gap-3 rounded-lg border border-surfaceMuted bg-white/65 p-3">
         <h3 className="text-base font-bold text-text">Media & Sound</h3>
-        <div className={formGridClass}>
-          <SelectInput label="Sound preset" value={soundPresetFor(type, config)} options={soundPresets} onChange={(preset) => patchSoundPreset(type, preset as SoundPreset)} />
-          <TextInput label="Custom sound URL" value={alertConfig.soundUrl} onChange={(soundUrl) => patchConfig({ alerts: { [type]: { soundUrl } } })} />
-          <RangeInput label="Volume %" value={alertConfig.volume} min={0} max={100} step={1} showNumberInput={false} valueLabel={`${alertConfig.volume}%`} onChange={(volume) => patchConfig({ alerts: { [type]: { volume } } })} />
+        <div className="grid gap-3 rounded-lg border border-surfaceMuted bg-white p-3">
+          <div className="grid gap-2">
+            <span className="text-sm font-bold text-text">Sound source</span>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {(["default", "preset", "custom"] as AlertSoundSource[]).map((source) => (
+                <button
+                  key={source}
+                  type="button"
+                  onClick={() => patchSoundSource(source)}
+                  className={`min-h-10 rounded-md border px-3 text-sm font-bold transition ${alertConfig.soundSource === source ? "border-sage bg-sage text-white" : "border-surfaceMuted bg-white text-textMuted hover:bg-surface"}`}
+                >
+                  {source === "default" ? "Use default sound" : source === "preset" ? "Select preset" : "Custom sound"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={formGridClass}>
+            <SelectInput
+              label="Alert preset"
+              value={alertConfig.soundSource === "preset" ? alertConfig.soundPreset : soundPresetFor(type, config)}
+              options={soundPresets}
+              onChange={(preset) => patchConfig({ alerts: { [type]: { soundSource: "preset", soundPreset: preset as SoundPreset } } })}
+            />
+            <TextInput label="Custom sound URL" value={alertConfig.soundUrl} onChange={(soundUrl) => patchConfig({ alerts: { [type]: { soundSource: soundUrl.trim() ? "custom" : alertConfig.soundSource, soundUrl } } })} />
+            <RangeInput label="Alert volume" value={alertConfig.volume} min={0} max={100} step={1} showNumberInput={false} valueLabel={`${alertConfig.volume}%`} onChange={(volume) => patchConfig({ alerts: { [type]: { volume } } })} />
+          </div>
+          <div className="grid gap-2 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-3 text-sm text-text">
+            <div>
+              <span className="font-bold">Sound status: </span>
+              <span className={isGloballyMuted ? "text-rose-700" : "text-text"}>{soundStatus}</span>
+            </div>
+            <div>
+              <span className="font-bold">Effective volume: </span>
+              {effectiveVolumeLabel} <span className="text-textMuted">({alertConfig.volume}% alert x {Math.round(config.sounds.masterVolume * 100)}% master)</span>
+            </div>
+            <div>
+              <span className="font-bold">Effective source: </span>
+              {effectiveSoundSource === "custom" ? alertConfig.soundUrl : `${effectiveSoundSource === "preset" ? "Preset" : "Default"}: ${soundPresetFor(type, config)}`}
+            </div>
+          </div>
+          <div className={formGridClass}>
           <label className="grid min-h-11 cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-[#e1dcd1] bg-white px-3 py-2 text-sm font-bold text-[#464d42]">
             <span>{uploading === "sound" ? "Uploading..." : "Upload sound"}</span>
             <Upload size={16} />
             <input type="file" accept=".mp3,.wav,.ogg,audio/*" onChange={(event) => void handleUpload(event.target.files?.[0], "sound")} />
           </label>
+          </div>
+        </div>
+        <div className={formGridClass}>
           <TextInput label="Media URL" value={alertConfig.mediaUrl} onChange={(mediaUrl) => patchConfig({ alerts: { [type]: { mediaUrl } } })} />
           <SelectInput label="Media type" value={alertConfig.mediaType} options={mediaTypes} onChange={(mediaType) => patchConfig({ alerts: { [type]: { mediaType: mediaType as AlertMediaType } } })} />
           {visualMode === "template" ? (
@@ -302,17 +347,33 @@ function AlertConfig({ type }: { type: AlertType }) {
     speakText(text);
   }
 
-  function patchSoundPreset(alertType: AlertType, preset: SoundPreset) {
-    if (alertType === "share" || alertType === "comment" || alertType === "goal" || alertType === "like") {
-      patchConfig({ sounds: { sharePreset: preset } });
-    }
-    if (alertType === "follow") {
-      patchConfig({ sounds: { followPreset: preset } });
-    }
-    if (alertType === "gift") {
-      patchConfig({ sounds: { giftPreset: preset } });
-    }
+  function patchSoundSource(soundSource: AlertSoundSource) {
+    patchConfig({ alerts: { [type]: { soundSource, soundPreset: alertConfig.soundPreset ?? defaultSoundPresetFor(type) } } });
   }
+}
+
+function getSoundStatus(type: AlertType, config: AppConfig) {
+  const alertConfig = config.alerts[type];
+
+  if (!config.sounds.enabled) {
+    return "Muted by global audio settings";
+  }
+  if (config.sounds.muted) {
+    return "Muted by global audio settings";
+  }
+  if (!alertConfig.playSound) {
+    return "Sound disabled for this alert";
+  }
+  if (alertConfig.soundSource === "custom" && !alertConfig.soundUrl.trim()) {
+    return "Custom sound URL is empty; using default sound";
+  }
+  if (effectiveSoundSourceFor(type, config) === "custom") {
+    return "Using custom sound";
+  }
+  if (effectiveSoundSourceFor(type, config) === "preset") {
+    return "Using preset";
+  }
+  return "Using default sound";
 }
 
 function OverlayConfigSection() {
@@ -609,9 +670,9 @@ export function AlertsPage() {
   }
 
   return (
-    <Tabs defaultValue="like" className="grid w-full gap-0">
+    <Tabs defaultValue="follow" className="grid w-full gap-0">
       <TabsList aria-label="Alert settings sections">
-        <TabsTrigger value="like">Like</TabsTrigger>
+        <TabsTrigger value="hearts">Like Hearts</TabsTrigger>
         <TabsTrigger value="chat">Chat</TabsTrigger>
         <TabsTrigger value="viewer">Viewer Count</TabsTrigger>
         {alertTypes.map((type) => (
@@ -620,7 +681,7 @@ export function AlertsPage() {
         <TabsTrigger value="queue">Queue</TabsTrigger>
         <TabsTrigger value="config">Config</TabsTrigger>
       </TabsList>
-      <TabsContent value="like">
+      <TabsContent value="hearts">
         <LikeHeartsConfig />
       </TabsContent>
       <TabsContent value="chat">

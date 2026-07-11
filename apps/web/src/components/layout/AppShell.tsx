@@ -47,7 +47,7 @@ export function AppShell({ children, path }: { children: React.ReactNode; path: 
               ["/goals", "Goals", Trophy],
               ["/chat", "Chat", MessageCircle],
               ["/tts", "TTS", Mic],
-              ["/sounds", "Sounds", Volume2]
+              ["/sounds", "Audio Settings", Volume2]
             ]}
             path={path}
           />

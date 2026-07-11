@@ -10,6 +10,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      soundSource: "default",
+      soundPreset: "pop",
       visualMode: "custom",
       visualTemplate: "minimal-toast",
       template: "{likeCount} likes from {displayName}",
@@ -34,6 +36,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      soundSource: "default",
+      soundPreset: "chime",
       visualMode: "custom",
       visualTemplate: "minimal-toast",
       template: "{displayName}: {message}",
@@ -58,6 +62,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: false,
+      soundSource: "default",
+      soundPreset: "chime",
       visualMode: "template",
       visualTemplate: "neon-pop",
       template: "{username} แชร์ไลฟ์แล้ว ขอบคุณมากครับ",
@@ -82,6 +88,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      soundSource: "default",
+      soundPreset: "soft-bell",
       visualMode: "template",
       visualTemplate: "big-shoutout",
       template: "ขอบคุณ {username} ที่กดติดตามครับ",
@@ -106,6 +114,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      soundSource: "default",
+      soundPreset: "coin",
       visualMode: "template",
       visualTemplate: "gift-pop",
       template: "ขอบคุณ {username} สำหรับ {giftName} x{giftCount}",
@@ -133,6 +143,8 @@ export const defaultConfig: AppConfig = {
       enabled: true,
       playSound: true,
       ttsEnabled: true,
+      soundSource: "default",
+      soundPreset: "sparkle",
       visualMode: "template",
       visualTemplate: "goal-complete",
       template: "{goalTitle} complete: {currentValue}/{targetValue}",
@@ -197,13 +209,8 @@ export const defaultConfig: AppConfig = {
   },
   sounds: {
     enabled: true,
-    masterVolume: 0.9,
-    shareVolume: 0.8,
-    followVolume: 0.8,
-    giftVolume: 0.9,
-    sharePreset: "chime",
-    followPreset: "soft-bell",
-    giftPreset: "coin"
+    muted: false,
+    masterVolume: 0.9
   },
   overlay: {
     showAlerts: true,
@@ -429,13 +436,52 @@ function deepMerge<T>(target: T, partial: DeepPartial<T>): T {
 }
 
 function normalizeConfig(config: AppConfig): AppConfig {
+  const legacySounds = config.sounds as AppConfig["sounds"] & {
+    sharePreset?: AppConfig["alerts"]["share"]["soundPreset"];
+    followPreset?: AppConfig["alerts"]["follow"]["soundPreset"];
+    giftPreset?: AppConfig["alerts"]["gift"]["soundPreset"];
+  };
+
   return {
     ...config,
+    alerts: {
+      ...config.alerts,
+      like: normalizeAlertConfig("like", config.alerts.like, legacySounds),
+      comment: normalizeAlertConfig("comment", config.alerts.comment, legacySounds),
+      share: normalizeAlertConfig("share", config.alerts.share, legacySounds),
+      follow: normalizeAlertConfig("follow", config.alerts.follow, legacySounds),
+      gift: normalizeAlertConfig("gift", config.alerts.gift, legacySounds),
+      goal: normalizeAlertConfig("goal", config.alerts.goal, legacySounds)
+    },
+    sounds: {
+      enabled: config.sounds.enabled,
+      muted: config.sounds.muted ?? false,
+      masterVolume: config.sounds.masterVolume
+    },
     chat: {
       ...config.chat,
       overlayUrl: resolveCurrentWebUrl(config.chat.overlayUrl, "/overlay/chat")
     },
     goals: config.goals.map(normalizeGoal)
+  };
+}
+
+function normalizeAlertConfig<T extends AppConfig["alerts"][keyof AppConfig["alerts"]]>(
+  type: keyof AppConfig["alerts"],
+  alertConfig: T,
+  legacySounds: AppConfig["sounds"] & {
+    sharePreset?: AppConfig["alerts"]["share"]["soundPreset"];
+    followPreset?: AppConfig["alerts"]["follow"]["soundPreset"];
+    giftPreset?: AppConfig["alerts"]["gift"]["soundPreset"];
+  }
+): T {
+  const legacyPreset = type === "gift" ? legacySounds.giftPreset : type === "follow" ? legacySounds.followPreset : legacySounds.sharePreset;
+  const soundSource = alertConfig.soundSource ?? (alertConfig.soundUrl ? "custom" : "default");
+
+  return {
+    ...alertConfig,
+    soundSource,
+    soundPreset: alertConfig.soundPreset ?? legacyPreset ?? defaultConfig.alerts[type].soundPreset
   };
 }
 

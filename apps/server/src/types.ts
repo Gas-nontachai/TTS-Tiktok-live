@@ -10,6 +10,7 @@ type ChatAnimationPreset = ChatEnterAnimationPreset | "fade" | "slide-up" | "sli
 type HeartAnimationPreset = "float-up" | "burst" | "spiral" | "side-float" | "confetti";
 type ViewerAnimationPreset = "none" | "fade" | "pulse" | "count-pop";
 type SoundPreset = "none" | "chime" | "pop" | "sparkle" | "coin" | "soft-bell" | "digital";
+type AlertSoundSource = "default" | "preset" | "custom";
 type AlertMediaType = "image" | "gif" | "webp";
 type AlertMediaPosition = "top" | "bottom" | "left" | "right";
 type AlertVisualMode = "template" | "custom";
@@ -133,6 +134,8 @@ interface AlertConfig {
   enabled: boolean;
   playSound: boolean;
   ttsEnabled: boolean;
+  soundSource: AlertSoundSource;
+  soundPreset: SoundPreset;
   visualMode: AlertVisualMode;
   visualTemplate: AlertVisualTemplate;
   template: string;
@@ -207,13 +210,8 @@ interface TtsConfig {
 
 interface SoundConfig {
   enabled: boolean;
+  muted: boolean;
   masterVolume: number;
-  shareVolume: number;
-  followVolume: number;
-  giftVolume: number;
-  sharePreset: SoundPreset;
-  followPreset: SoundPreset;
-  giftPreset: SoundPreset;
 }
 
 interface OverlayConfig {
