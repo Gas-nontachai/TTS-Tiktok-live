@@ -61,7 +61,7 @@ export function useRealtime() {
         }
 
         if (message.type === "chat_config_updated") {
-          patchConfig({ chat: message.payload });
+          patchConfig({ chat: message.payload }, false);
         }
 
         if (message.type === "chat_stats_updated") {
@@ -106,7 +106,7 @@ export function useRealtime() {
       if (reconnectTimer) {
         window.clearTimeout(reconnectTimer);
       }
-      socket?.close();
+      closeSocket(socket);
     };
   }, [
     addChatMessage,
@@ -122,4 +122,21 @@ export function useRealtime() {
     setStatus,
     setWsConnected
   ]);
+}
+
+function closeSocket(socket: WebSocket | undefined) {
+  if (!socket) {
+    return;
+  }
+
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.close();
+    return;
+  }
+
+  if (socket.readyState === WebSocket.CONNECTING) {
+    socket.onopen = () => socket.close();
+    socket.onmessage = null;
+    socket.onerror = null;
+  }
 }

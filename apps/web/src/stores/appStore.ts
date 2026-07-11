@@ -329,6 +329,7 @@ const defaultStats: AppStats = {
 
 interface AppState {
   config: AppConfig;
+  configDirty: boolean;
   status: TikTokStatus;
   stats: AppStats;
   overlayEvents: OverlayEvent[];
@@ -342,7 +343,8 @@ interface AppState {
   chatPaused: boolean;
   setConfig: (config: AppConfig) => void;
   setGoals: (goals: GoalState[]) => void;
-  patchConfig: (config: DeepPartial<AppConfig>) => void;
+  patchConfig: (config: DeepPartial<AppConfig>, dirty?: boolean) => void;
+  markConfigClean: () => void;
   setStatus: (status: TikTokStatus) => void;
   setStats: (stats: AppStats) => void;
   addOverlayEvent: (event: OverlayEvent) => void;
@@ -361,6 +363,7 @@ export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
       config: defaultConfig,
+      configDirty: false,
       status: {
         status: "disconnected",
         username: "",
@@ -376,11 +379,12 @@ export const useAppStore = create<AppState>()(
       ttsQueue: [],
       ttsQueuePaused: false,
       chatPaused: false,
-      setConfig: (config) => set({ config: normalizeConfig(config) }),
+      setConfig: (config) => set({ config: normalizeConfig(config), configDirty: false }),
       setGoals: (goals) => set({ config: normalizeConfig({ ...get().config, goals }) }),
-      patchConfig: (partial) => {
-        set({ config: normalizeConfig(deepMerge(get().config, partial)) });
+      patchConfig: (partial, dirty = true) => {
+        set({ config: normalizeConfig(deepMerge(get().config, partial)), configDirty: dirty });
       },
+      markConfigClean: () => set({ configDirty: false }),
       setStatus: (status) => set({ status }),
       setStats: (stats) => set({ stats }),
       addOverlayEvent: (event) => {

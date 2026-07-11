@@ -156,7 +156,9 @@ async function loadInitialState() {
 
 function useConfigAutosave(enabled = true) {
   const config = useAppStore((state) => state.config);
+  const configDirty = useAppStore((state) => state.configDirty);
   const setConfig = useAppStore((state) => state.setConfig);
+  const markConfigClean = useAppStore((state) => state.markConfigClean);
   const lastSerializedRef = useRef("");
   const initializedRef = useRef(false);
 
@@ -173,21 +175,28 @@ function useConfigAutosave(enabled = true) {
       return;
     }
 
+    if (!configDirty) {
+      lastSerializedRef.current = serialized;
+      return;
+    }
+
     if (serialized === lastSerializedRef.current) {
       return;
     }
 
     const timer = window.setTimeout(async () => {
       const latestConfig = useAppStore.getState().config;
+      const latestDirty = useAppStore.getState().configDirty;
       const latestSerialized = JSON.stringify(latestConfig);
 
-      if (latestSerialized === lastSerializedRef.current) {
+      if (!latestDirty || latestSerialized === lastSerializedRef.current) {
         return;
       }
 
       try {
         const saved = await saveConfig(latestConfig);
         lastSerializedRef.current = JSON.stringify(saved);
+        markConfigClean();
         setConfig(saved);
       } catch (error) {
         useAppStore.getState().setError(error instanceof Error ? error.message : "Unable to autosave config");
@@ -195,7 +204,7 @@ function useConfigAutosave(enabled = true) {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [config, enabled, setConfig]);
+  }, [config, configDirty, enabled, markConfigClean, setConfig]);
 }
 
 function readJson<T>(key: string) {

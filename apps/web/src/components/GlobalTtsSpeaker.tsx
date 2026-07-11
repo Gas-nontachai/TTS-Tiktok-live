@@ -167,9 +167,13 @@ export function GlobalTtsSpeaker() {
 
   useEffect(() => {
     if (!active || !isSpeakerRef.current) {
-      setQueue([]);
-      processingRef.current = false;
-      stopSpeaking();
+      if (queue.length > 0) {
+        setQueue([]);
+      }
+      if (processingRef.current || isSpeaking()) {
+        processingRef.current = false;
+        stopSpeaking();
+      }
       return;
     }
     if (!canSpeak || processingRef.current || isSpeaking() || queue.length === 0) {
