@@ -97,9 +97,6 @@ function ControlTabGuard({ enabled, path }: { enabled: boolean; path: string }) 
         <div className="absolute inset-0 animate-dialog-overlay bg-black/55 backdrop-blur-[2px]" />
         <div className="relative w-full max-w-md animate-dialog-enter rounded-lg bg-surface p-5 shadow-xl ring-1 ring-surfaceMuted">
           <h3 className="text-lg font-semibold">มีแท็บควบคุมเปิดอยู่แล้ว</h3>
-          <p className="mt-2 text-sm text-textMuted">
-            เพื่อกัน config ชนกัน ให้เหลือแท็บควบคุมระบบแค่แท็บเดียว แท็บ overlay สำหรับ OBS ยังเปิดแยกได้ตามปกติ
-          </p>
           {closeAttempted ? (
             <p className="mt-3 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
               ถ้าบราวเซอร์ไม่อนุญาตให้ปิดอัตโนมัติ กรุณาปิดแท็บนี้เอง

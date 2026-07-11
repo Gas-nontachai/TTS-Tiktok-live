@@ -10,14 +10,13 @@ export const soundPresets: SoundPreset[] = ["none", "chime", "pop", "sparkle", "
 export const alertVisualTemplates: Array<{
   id: AlertVisualTemplate;
   label: string;
-  description: string;
   emoji: string;
 }> = [
-  { id: "gift-pop", label: "Gift Pop", description: "ของขวัญเด้งใหญ่ตรงกลางพร้อม badge จำนวน", emoji: "🎁" },
-  { id: "neon-pop", label: "Neon Pop", description: "arcade neon burst ข้อความกลางจอพร้อม glow", emoji: "✨" },
-  { id: "minimal-toast", label: "Minimal Toast", description: "toast เรียบแบบเดียวสำหรับคนอยากไม่บังจอ", emoji: "🔔" },
-  { id: "big-shoutout", label: "Big Shoutout", description: "banner shoutout กว้าง ชื่อคนเด่นมาก", emoji: "🎉" },
-  { id: "goal-complete", label: "Goal Complete", description: "achievement style พร้อม trophy และ progress", emoji: "🏆" }
+  { id: "gift-pop", label: "Gift Pop", emoji: "🎁" },
+  { id: "neon-pop", label: "Neon Pop", emoji: "✨" },
+  { id: "minimal-toast", label: "Minimal Toast", emoji: "🔔" },
+  { id: "big-shoutout", label: "Big Shoutout", emoji: "🎉" },
+  { id: "goal-complete", label: "Goal Complete", emoji: "🏆" }
 ];
 
 const fallbackWebOrigin = import.meta.env.VITE_WEB_ORIGIN ?? "http://localhost:3000";

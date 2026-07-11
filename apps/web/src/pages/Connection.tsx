@@ -69,7 +69,6 @@ export function ConnectionPage() {
       <ConfirmDialog
         open={confirmDisconnectOpen}
         title="Disconnect"
-        description="Are you sure you want to disconnect from TikTok?"
         confirmText="Disconnect"
         cancelText="Cancel"
         onConfirm={async () => {

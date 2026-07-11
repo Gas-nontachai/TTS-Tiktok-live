@@ -423,9 +423,7 @@ export function TtsPlayerPage() {
     <main className="grid min-h-screen place-items-center bg-surface p-5 text-text">
       <section className="grid w-full max-w-[820px] animate-panel-enter gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-5 shadow-[0_18px_50px_rgba(47,53,46,0.12)]">
         <div>
-          <p className="mb-2 text-xs font-black uppercase tracking-[0.12em] text-textMuted">Browser TTS Player</p>
           <h1>เล่นเสียง TTS ผ่าน Browser</h1>
-          <p className="mt-2 text-sm text-textMuted">เปิดหน้านี้ค้างไว้บนเครื่องสตรีม แล้วกด Enable Audio ก่อนเริ่มไลฟ์ OBS overlay จะไม่พูดเองแล้ว</p>
         </div>
         <div className="flex flex-wrap gap-2.5">
           <Button

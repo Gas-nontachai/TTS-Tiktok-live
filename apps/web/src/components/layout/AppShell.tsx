@@ -72,7 +72,6 @@ export function AppShell({ children, path }: { children: React.ReactNode; path: 
             ) : null}
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-text">{routeTitle(path)}</h1>
-              <p className="mt-2 text-sm text-textMuted">Local alerts, chat, TTS, and OBS overlays for TikTok Live.</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">

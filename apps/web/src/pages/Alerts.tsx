@@ -200,10 +200,7 @@ function AlertConfig({ type }: { type: AlertType }) {
 
       <section className="grid gap-3 rounded-lg border border-surfaceMuted bg-white/65 p-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="text-base font-bold text-text">Alert Visual</h3>
-            <p className="text-sm text-textMuted">Template คือ UI สำเร็จรูป ส่วน Custom คือปรับเองจาก field เดิม</p>
-          </div>
+          <h3 className="text-base font-bold text-text">Alert Visual</h3>
           <div className="inline-grid grid-cols-2 rounded-md border border-surfaceMuted bg-white p-1">
             {(["template", "custom"] as AlertVisualMode[]).map((mode) => (
               <button
@@ -432,7 +429,6 @@ function TemplateGallery({
             </div>
             <div className="grid gap-1">
               <span className="text-sm font-black text-text">{template.emoji} {template.label}</span>
-              <span className="text-xs font-medium leading-snug text-textMuted">{template.description}</span>
               {isSelected ? <span className="text-xs font-black uppercase tracking-[0.12em] text-sage">Selected</span> : null}
             </div>
           </button>
@@ -474,10 +470,7 @@ function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: P
         <button className="absolute inset-0 bg-black/55 backdrop-blur-sm" type="button" aria-label="Close preview" onClick={onClose} />
         <section className="relative grid w-full max-w-6xl gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-4 shadow-2xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h2>{target === "viewer-count" ? "Viewer Count" : target === "chat" ? "Chat" : typeLabel(target)} Preview</h2>
-              <p className="text-sm text-textMuted">Preview นี้ใช้ renderer กลางของ widget เดียวกัน</p>
-            </div>
+            <h2>{target === "viewer-count" ? "Viewer Count" : target === "chat" ? "Chat" : typeLabel(target)} Preview</h2>
             <div className="flex flex-wrap gap-2">
               {(["16:9", "9:16"] as const).map((nextRatio) => (
                 <Button key={nextRatio} type="button" variant={ratio === nextRatio ? "primary" : "secondary"} onClick={() => setRatio(nextRatio)}>

@@ -114,9 +114,6 @@ export function SettingsPage() {
               className="hidden"
               onChange={(event) => void importConfig(event.target.files?.[0])}
             />
-            <p className="text-sm text-textMuted">
-              Local draft is stored in this browser. Save Config writes it to the server config used by OBS.
-            </p>
             {status ? <p className="rounded-md border border-surfaceMuted bg-white px-3 py-2 text-sm font-semibold text-text">{status}</p> : null}
           </section>
         </TabsContent>
@@ -124,7 +121,6 @@ export function SettingsPage() {
       <ConfirmDialog
         open={confirmResetOpen}
         title="Reset config"
-        description="This will replace the current server config and local draft with defaults."
         confirmText="Reset"
         cancelText="Cancel"
         onConfirm={restoreDefaults}
