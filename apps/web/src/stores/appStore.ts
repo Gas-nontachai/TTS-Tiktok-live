@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { overlayChatUrl, resolveCurrentWebUrl } from "../config/constants";
-import type { AppConfig, AppStats, ChatMessageEvent, DeepPartial, GoalConfig, GoalState, LogEntry, OverlayEvent, TikTokStatus } from "../types";
+import type { AppConfig, AppStats, ChatMessageEvent, DeepPartial, GoalConfig, GoalState, LogEntry, OverlayEvent, TikTokStatus, TtsQueueItem } from "../types";
 
 export const defaultConfig: AppConfig = {
   tiktok: { username: "" },
@@ -330,6 +330,8 @@ interface AppState {
   error: string;
   wsConnected: boolean;
   currentSpeakingText: string;
+  ttsQueue: TtsQueueItem[];
+  ttsQueuePaused: boolean;
   chatPaused: boolean;
   setConfig: (config: AppConfig) => void;
   setGoals: (goals: GoalState[]) => void;
@@ -343,6 +345,8 @@ interface AppState {
   setError: (error: string) => void;
   setWsConnected: (connected: boolean) => void;
   setCurrentSpeakingText: (text: string) => void;
+  setTtsQueue: (queue: TtsQueueItem[]) => void;
+  setTtsQueuePaused: (paused: boolean) => void;
   setChatPaused: (paused: boolean) => void;
 }
 
@@ -362,6 +366,8 @@ export const useAppStore = create<AppState>()(
       error: "",
       wsConnected: false,
       currentSpeakingText: "",
+      ttsQueue: [],
+      ttsQueuePaused: false,
       chatPaused: false,
       setConfig: (config) => set({ config: normalizeConfig(config) }),
       setGoals: (goals) => set({ config: normalizeConfig({ ...get().config, goals }) }),
@@ -381,6 +387,8 @@ export const useAppStore = create<AppState>()(
       setError: (error) => set({ error }),
       setWsConnected: (wsConnected) => set({ wsConnected }),
       setCurrentSpeakingText: (currentSpeakingText) => set({ currentSpeakingText }),
+      setTtsQueue: (ttsQueue) => set({ ttsQueue }),
+      setTtsQueuePaused: (ttsQueuePaused) => set({ ttsQueuePaused }),
       setChatPaused: (chatPaused) => set({ chatPaused })
     }),
     {

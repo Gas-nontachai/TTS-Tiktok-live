@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
 import { useAppStore } from "../stores/appStore";
-import type { AlertEvent } from "../types";
+import type { AlertEvent, TtsQueueItem } from "../types";
 import { claimRecentKey, eventSemanticKey, filterChat, isAlertEvent, renderTemplate } from "../utils/helpers";
 
 const speakerId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -11,27 +11,24 @@ const speakerLockTtlMs = 4000;
 const spokenEventTtlMs = 30000;
 const semanticEventTtlMs = 30000;
 
-type TtsWorkItem = {
-  id: string;
-  source: "alert" | "chat";
-  text: string;
-  timestamp: number;
-};
-
 export function GlobalTtsSpeaker() {
   const { speakText, stopSpeaking, isSpeaking } = useSpeechQueue();
   const config = useAppStore((state) => state.config);
   const events = useAppStore((state) => state.overlayEvents);
   const chatMessages = useAppStore((state) => state.chatMessages);
   const status = useAppStore((state) => state.status.status);
-  const [queue, setQueue] = useState<TtsWorkItem[]>([]);
+  const ttsQueuePaused = useAppStore((state) => state.ttsQueuePaused);
+  const setTtsQueue = useAppStore((state) => state.setTtsQueue);
+  const setTtsQueuePaused = useAppStore((state) => state.setTtsQueuePaused);
+  const [queue, setQueue] = useState<TtsQueueItem[]>([]);
   const seenAlertsRef = useRef(new Set<string>());
   const seenChatRef = useRef(new Set<string>());
   const recentAlertKeysRef = useRef<Record<string, number>>({});
   const processingRef = useRef(false);
   const duplicatesRef = useRef<Record<string, number>>({});
   const isSpeakerRef = useRef(false);
-  const enabled = config.tts.enabled && config.tts.playerEnabled && !config.tts.muted;
+  const active = config.tts.enabled && config.tts.playerEnabled;
+  const canSpeak = active && !config.tts.muted && !ttsQueuePaused;
 
   useEffect(() => {
     const updateSpeakerLock = () => {
@@ -47,7 +44,7 @@ export function GlobalTtsSpeaker() {
     };
   }, []);
 
-  function enqueue(item: TtsWorkItem, interrupt = false) {
+  function enqueue(item: TtsQueueItem, interrupt = false) {
     if (interrupt || config.tts.queueMode === "interrupt") {
       stopSpeaking();
       processingRef.current = false;
@@ -55,8 +52,12 @@ export function GlobalTtsSpeaker() {
       return;
     }
 
-    setQueue((items) => [...items, item].slice(-config.tts.maxQueueSize));
+    setQueue((items) => sortTtsQueue([...items, item]).slice(0, config.tts.maxQueueSize));
   }
+
+  useEffect(() => {
+    setTtsQueue(queue);
+  }, [queue, setTtsQueue]);
 
   useEffect(() => {
     const latest = events[0];
@@ -69,7 +70,7 @@ export function GlobalTtsSpeaker() {
       return;
     }
 
-    if (!isSpeakerRef.current || !enabled || !config.tts.speakAlerts || !claimSpokenEvent(eventKey)) {
+    if (!isSpeakerRef.current || !active || !config.tts.speakAlerts || !claimSpokenEvent(eventKey)) {
       return;
     }
 
@@ -84,7 +85,7 @@ export function GlobalTtsSpeaker() {
       text: renderTemplate(alertConfig.template, latest),
       timestamp: Date.now()
     }, isTestAlert(latest));
-  }, [config, enabled, events, stopSpeaking]);
+  }, [active, config, events, stopSpeaking]);
 
   useEffect(() => {
     const latest = chatMessages[0];
@@ -93,7 +94,7 @@ export function GlobalTtsSpeaker() {
     }
     seenChatRef.current.add(latest.id);
 
-    if (!isSpeakerRef.current || !enabled || !config.tts.speakChat || !claimSpokenEvent(latest.id)) {
+    if (!isSpeakerRef.current || !active || !config.tts.speakChat || !claimSpokenEvent(latest.id)) {
       return;
     }
 
@@ -119,7 +120,7 @@ export function GlobalTtsSpeaker() {
       text,
       timestamp: Date.now()
     });
-  }, [chatMessages, config, enabled, stopSpeaking]);
+  }, [active, chatMessages, config, stopSpeaking]);
 
   useEffect(() => {
     if (status !== "disconnected" || !config.alertQueue.clearQueueOnDisconnect) {
@@ -137,19 +138,41 @@ export function GlobalTtsSpeaker() {
       processingRef.current = false;
       stopSpeaking();
     };
+    const skip = () => {
+      processingRef.current = false;
+      stopSpeaking();
+      setQueue((items) => [...items]);
+    };
+    const pause = () => {
+      setTtsQueuePaused(true);
+      processingRef.current = false;
+      stopSpeaking();
+    };
+    const resume = () => {
+      setTtsQueuePaused(false);
+      setQueue((items) => [...items]);
+    };
 
     window.addEventListener("stop-tts", stop);
-    return () => window.removeEventListener("stop-tts", stop);
-  }, [stopSpeaking]);
+    window.addEventListener("skip-tts", skip);
+    window.addEventListener("pause-tts-queue", pause);
+    window.addEventListener("resume-tts-queue", resume);
+    return () => {
+      window.removeEventListener("stop-tts", stop);
+      window.removeEventListener("skip-tts", skip);
+      window.removeEventListener("pause-tts-queue", pause);
+      window.removeEventListener("resume-tts-queue", resume);
+    };
+  }, [setTtsQueuePaused, stopSpeaking]);
 
   useEffect(() => {
-    if (!enabled || !isSpeakerRef.current) {
+    if (!active || !isSpeakerRef.current) {
       setQueue([]);
       processingRef.current = false;
       stopSpeaking();
       return;
     }
-    if (processingRef.current || isSpeaking() || queue.length === 0) {
+    if (!canSpeak || processingRef.current || isSpeaking() || queue.length === 0) {
       return;
     }
 
@@ -162,9 +185,17 @@ export function GlobalTtsSpeaker() {
         setQueue((items) => [...items]);
       }, config.tts.cooldownMs);
     });
-  }, [config.tts.cooldownMs, enabled, isSpeaking, queue, speakText, stopSpeaking]);
+  }, [active, canSpeak, config.tts.cooldownMs, isSpeaking, queue, speakText, stopSpeaking]);
 
   return null;
+}
+
+function sortTtsQueue(items: TtsQueueItem[]) {
+  return [...items].sort((a, b) => sourcePriority(b.source) - sourcePriority(a.source) || a.timestamp - b.timestamp);
+}
+
+function sourcePriority(source: TtsQueueItem["source"]) {
+  return source === "alert" ? 2 : 1;
 }
 
 function shouldSpeakAlert(event: AlertEvent, config: ReturnType<typeof useAppStore.getState>["config"]) {

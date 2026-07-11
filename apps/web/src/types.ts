@@ -128,6 +128,13 @@ export interface AiThaiTtsPreflight {
   checks: AiThaiTtsCheck[];
 }
 
+export interface TtsQueueItem {
+  id: string;
+  source: "alert" | "chat";
+  text: string;
+  timestamp: number;
+}
+
 interface AlertConfig {
   enabled: boolean;
   playSound: boolean;
