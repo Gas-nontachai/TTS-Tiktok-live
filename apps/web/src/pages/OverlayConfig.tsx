@@ -8,7 +8,9 @@ import {
   overlayHeartsUrl,
   overlayTtsUrl,
   overlayMainUrl,
-  panelClass
+  panelClass,
+  resolveCurrentWebUrl,
+  ttsPlayerUrl
 } from "../config/constants";
 
 export function OverlayConfigPage() {
@@ -28,8 +30,8 @@ export function OverlayConfigPage() {
           <CopyRow label="Goals Overlay" value={overlayGoalsUrl} />
           <CopyRow label="Viewer Count Overlay" value={overlayViewerCountUrl} />
           <CopyRow label="Hearts Overlay" value={overlayHeartsUrl} />
-          <CopyRow label="Chat Overlay" value={config.chat.overlayUrl || ""} />
-          <CopyRow label="TTS Player" value={""} />
+          <CopyRow label="Chat Overlay" value={resolveCurrentWebUrl(config.chat.overlayUrl, "/overlay/chat")} />
+          <CopyRow label="TTS Player" value={ttsPlayerUrl} />
           <CopyRow label="Deprecated TTS Overlay" value={overlayTtsUrl} />
           <CopyRow label="Combined Preview" value={overlayMainUrl} />
           <p className="mt-1 text-sm text-textMuted">OBS 16:9: 1920 x 1080, 30 FPS</p>

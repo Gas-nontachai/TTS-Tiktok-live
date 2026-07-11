@@ -20,14 +20,43 @@ export const alertVisualTemplates: Array<{
   { id: "goal-complete", label: "Goal Complete", description: "achievement style พร้อม trophy และ progress", emoji: "🏆" }
 ];
 
-export const overlayMainUrl = "http://localhost:3000/overlay/main";
-export const overlayAlertsUrl = "http://localhost:3000/overlay/alerts";
-export const overlayGoalsUrl = "http://localhost:3000/overlay/goals";
-export const overlayViewerCountUrl = "http://localhost:3000/overlay/viewer-count";
-export const overlayHeartsUrl = "http://localhost:3000/overlay/hearts";
-export const overlayChatUrl = "http://localhost:3000/overlay/chat";
-export const overlayTtsUrl = "http://localhost:3000/overlay/tts";
-export const ttsPlayerUrl = "http://localhost:3000/player/tts";
+const fallbackWebOrigin = import.meta.env.VITE_WEB_ORIGIN ?? "http://localhost:3000";
+const legacyWebOrigin = "http://localhost:3000";
+
+export function getWebOrigin() {
+  return typeof window === "undefined" ? fallbackWebOrigin : window.location.origin;
+}
+
+export function webUrl(path: string) {
+  return new URL(path, `${getWebOrigin()}/`).toString();
+}
+
+export function resolveCurrentWebUrl(url: string, fallbackPath: string) {
+  if (!url) {
+    return webUrl(fallbackPath);
+  }
+
+  try {
+    const parsed = new URL(url);
+
+    if (parsed.origin === legacyWebOrigin) {
+      return webUrl(`${parsed.pathname}${parsed.search}${parsed.hash}`);
+    }
+  } catch {
+    return webUrl(fallbackPath);
+  }
+
+  return url;
+}
+
+export const overlayMainUrl = webUrl("/overlay/main");
+export const overlayAlertsUrl = webUrl("/overlay/alerts");
+export const overlayGoalsUrl = webUrl("/overlay/goals");
+export const overlayViewerCountUrl = webUrl("/overlay/viewer-count");
+export const overlayHeartsUrl = webUrl("/overlay/hearts");
+export const overlayChatUrl = webUrl("/overlay/chat");
+export const overlayTtsUrl = webUrl("/overlay/tts");
+export const ttsPlayerUrl = webUrl("/player/tts");
 
 export const panelClass = "flex animate-panel-enter flex-col gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-4";
 export const quietClass = "text-sm text-textMuted";

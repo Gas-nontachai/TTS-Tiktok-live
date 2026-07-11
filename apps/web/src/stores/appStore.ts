@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { overlayChatUrl, resolveCurrentWebUrl } from "../config/constants";
 import type { AppConfig, AppStats, ChatMessageEvent, DeepPartial, GoalConfig, GoalState, LogEntry, OverlayEvent, TikTokStatus } from "../types";
 
 export const defaultConfig: AppConfig = {
@@ -242,7 +243,7 @@ export const defaultConfig: AppConfig = {
   ],
   chat: {
     enabled: true,
-    overlayUrl: "http://localhost:3000/overlay/chat",
+    overlayUrl: overlayChatUrl,
     display: {
       showAvatar: true,
       showUsername: true,
@@ -422,6 +423,10 @@ function deepMerge<T>(target: T, partial: DeepPartial<T>): T {
 function normalizeConfig(config: AppConfig): AppConfig {
   return {
     ...config,
+    chat: {
+      ...config.chat,
+      overlayUrl: resolveCurrentWebUrl(config.chat.overlayUrl, "/overlay/chat")
+    },
     goals: config.goals.map(normalizeGoal)
   };
 }

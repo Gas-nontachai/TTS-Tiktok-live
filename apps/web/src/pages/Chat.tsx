@@ -4,7 +4,7 @@ import { useAppStore } from "../stores/appStore";
 import { Button, CopyRow, Toggle, TextArea, TextInput, NumberInput, RangeInput, SelectInput, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
 import { clearChat, pauseChat, resumeChat, blockChatUser, addBlacklistWord } from "../services/api";
 import type { AppConfig, ChatEnterAnimationPreset, ChatExitAnimationPreset } from "../types";
-import { buttonRowClass, chatEnterAnimations, chatExitAnimations, chatFontFamilies, panelClass, overlayChatUrl } from "../config/constants";
+import { buttonRowClass, chatEnterAnimations, chatExitAnimations, chatFontFamilies, panelClass, resolveCurrentWebUrl } from "../config/constants";
 import { lines } from "../utils/helpers";
 import { ChatPreviewWidget } from "../components/chat/ChatPreviewWidget";
 
@@ -31,7 +31,7 @@ export function ChatPage() {
       <TabsContent value="overlay">
         <section className={panelClass}>
           <h2>Chat Overlay</h2>
-          <CopyRow label="Chat Overlay URL" value={config.chat.overlayUrl || overlayChatUrl} />
+          <CopyRow label="Chat Overlay URL" value={resolveCurrentWebUrl(config.chat.overlayUrl, "/overlay/chat")} />
           <Button variant="secondary" onClick={() => setPreviewOpen(true)}><Eye size={16} />Preview widget</Button>
           <Toggle label="Enable Chat Overlay" checked={config.chat.enabled} onChange={(enabled) => patchConfig({ chat: { enabled } })} />
           <Toggle label="Show avatar" checked={config.chat.display.showAvatar} onChange={(showAvatar) => patchConfig({ chat: { display: { showAvatar } } })} />
