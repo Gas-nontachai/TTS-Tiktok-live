@@ -20,8 +20,6 @@ type LogHandler = (entry: LogEntry) => void;
 
 const giftDuplicateTtlMs = 3000;
 const giftStreakIdleMs = 1500;
-const viewerZeroHoldMs = 15000;
-const viewerSpikeWindowMs = 2500;
 
 type PendingGiftStreak = {
   event: GiftAlertEvent;
@@ -39,8 +37,6 @@ export class TikTokLiveService {
   private connection?: TikTokConnectionLike;
   private recentGiftKeys: Record<string, number> = {};
   private pendingGiftStreaks: Record<string, PendingGiftStreak> = {};
-  private lastViewerCount?: number;
-  private lastViewerCountAt = 0;
   private status: TikTokStatus = {
     status: "disconnected",
     username: "",
@@ -75,8 +71,6 @@ export class TikTokLiveService {
     }) as unknown as TikTokConnectionLike;
     this.connection = connection;
     this.recentGiftKeys = {};
-    this.lastViewerCount = undefined;
-    this.lastViewerCountAt = 0;
     this.clearPendingGiftStreaks();
 
     const isActiveConnection = () => this.connection === connection;
@@ -101,7 +95,6 @@ export class TikTokLiveService {
     connection.on(WebcastEvent.FOLLOW, emitIfActive("follow", (data) => this.mapFollow(data)));
     connection.on(WebcastEvent.GIFT, emitIfActive("gift", (data) => this.mapGift(data)));
     connection.on(WebcastEvent.ROOM_USER, emitIfActive("viewer_count", (data) => this.mapViewerCount(data)));
-    connection.on(WebcastEvent.MEMBER, emitIfActive("viewer_count", (data) => this.mapMemberCount(data)));
     connection.on(WebcastEvent.LIKE, emitIfActive("like", (data) => this.mapLike(data)));
 
     connection.on("disconnected", () => {
@@ -169,8 +162,6 @@ export class TikTokLiveService {
       await connection.disconnect();
     }
     this.recentGiftKeys = {};
-    this.lastViewerCount = undefined;
-    this.lastViewerCountAt = 0;
     this.clearPendingGiftStreaks();
 
     this.setStatus({ status: "disconnected", username: this.status.username, roomId: "" }, announce);
@@ -182,7 +173,7 @@ export class TikTokLiveService {
   private emitMapped(type: string, event: MappedOverlayEvent, raw: unknown) {
     this.log("info", "raw_event", `Raw ${type} event received`, raw);
     if (!event) {
-      this.log("info", "normalized_event", `Skipped unstable ${type} event`);
+      this.log("info", "normalized_event", `Skipped ${type} event without a usable payload`);
       return;
     }
 
@@ -374,12 +365,7 @@ export class TikTokLiveService {
 
   private mapViewerCount(data: unknown): ViewerCountEvent | null {
     const payload = this.asRecord(data);
-    return this.normalizeViewerCount(this.firstNumber(payload.viewerCount, payload.viewer_count, payload.memberCount, payload.member_count));
-  }
-
-  private mapMemberCount(data: unknown): ViewerCountEvent | null {
-    const payload = this.asRecord(data);
-    return this.normalizeViewerCount(this.firstNumber(payload.viewerCount, payload.viewer_count, payload.memberCount, payload.member_count));
+    return this.normalizeViewerCount(this.firstNumber(payload.viewerCount, payload.viewer_count));
   }
 
   private mapInitialViewerCount(roomInfo: unknown): ViewerCountEvent | null {
@@ -392,31 +378,10 @@ export class TikTokLiveService {
       return null;
     }
 
-    const viewerCount = Math.max(0, Math.round(rawCount));
-    const now = Date.now();
-
-    if (this.lastViewerCount !== undefined) {
-      const elapsed = now - this.lastViewerCountAt;
-
-      if (viewerCount === 0 && this.lastViewerCount > 0 && elapsed < viewerZeroHoldMs) {
-        return null;
-      }
-
-      const delta = Math.abs(viewerCount - this.lastViewerCount);
-      const spikeLimit = Math.max(100, Math.ceil(this.lastViewerCount * 0.75));
-
-      if (elapsed < viewerSpikeWindowMs && delta > spikeLimit) {
-        return null;
-      }
-    }
-
-    this.lastViewerCount = viewerCount;
-    this.lastViewerCountAt = now;
-
     return {
       id: this.id("viewer"),
       type: "viewer_count",
-      viewerCount,
+      viewerCount: Math.max(0, Math.round(rawCount)),
       timestamp: Date.now()
     };
   }
@@ -529,17 +494,7 @@ export class TikTokLiveService {
     const record = value as Record<string, unknown>;
     const direct = this.firstNumber(
       record.viewerCount,
-      record.viewer_count,
-      record.memberCount,
-      record.member_count,
-      record.userCount,
-      record.user_count,
-      record.totalUser,
-      record.total_user,
-      record.totalUserCount,
-      record.total_user_count,
-      record.audienceCount,
-      record.audience_count
+      record.viewer_count
     );
 
     if (direct !== undefined) {
