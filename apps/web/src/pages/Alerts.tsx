@@ -3,6 +3,7 @@ import { Upload } from "lucide-react";
 import { useAppStore } from "../stores/appStore";
 import { Button, Toggle, TextInput, NumberInput, RangeInput, SelectInput, Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui";
 import { AlertRenderer } from "../components/alerts/AlertRenderer";
+import { ChatPreviewWidget } from "../components/chat/ChatPreviewWidget";
 import { saveConfig, testAlert, testChatMessage, uploadMedia } from "../services/api";
 import { useSpeechQueue } from "../hooks/useSpeechQueue";
 import type { AlertAnimationPreset, AlertEvent, AlertMediaPosition, AlertMediaType, AlertType, AlertVisualMode, AlertVisualTemplate, AppConfig, SoundPreset } from "../types";
@@ -10,11 +11,10 @@ import { alertAnimations, alertVisualTemplates, buttonRowClass, chatEnterAnimati
 import { playAlertSound, renderTemplate, soundPresetFor, typeLabel } from "../utils/helpers";
 
 const alertTypes: AlertType[] = ["follow", "share", "gift", "goal"];
-const previewTargets: Array<AlertType | "viewer-count"> = ["like", "comment", "viewer-count", "follow", "share", "gift", "goal"];
 const mediaPositions: AlertMediaPosition[] = ["left", "right", "top", "bottom"];
 const mediaTypes: AlertMediaType[] = ["image", "gif", "webp"];
 type AlertConfigValue = AppConfig["alerts"][keyof AppConfig["alerts"]];
-type PreviewTarget = AlertType | "viewer-count";
+type PreviewTarget = AlertType | "chat" | "viewer-count";
 type PreviewBackgroundId = "transparent" | "dark" | "light" | "live" | "warm";
 type PreviewHeart = {
   id: string;
@@ -63,7 +63,7 @@ function LikeHeartsConfig() {
   );
 }
 
-function CommentChatConfig() {
+function ChatConfigSection() {
   const config = useAppStore((state) => state.config);
   const patchConfig = useAppStore((state) => state.patchConfig);
   const [message, setMessage] = useState("สวัสดีครับ นี่คือข้อความทดสอบ");
@@ -71,7 +71,7 @@ function CommentChatConfig() {
 
   return (
     <section className={panelClass}>
-      <h2>Comment Chat</h2>
+      <h2>Chat</h2>
       <div className="flex flex-wrap items-center gap-3">
         <Toggle label="Enable chat overlay" checked={config.chat.enabled} onChange={(enabled) => patchConfig({ chat: { enabled } })} />
         <Toggle label="Show avatar" checked={config.chat.display.showAvatar} onChange={(showAvatar) => patchConfig({ chat: { display: { showAvatar } } })} />
@@ -85,11 +85,11 @@ function CommentChatConfig() {
       </div>
       <TextInput label="Test message" value={message} onChange={setMessage} />
       <div className={buttonRowClass}>
-        <Button onClick={() => void testChatMessage(message)}>Test Comment Chat</Button>
+        <Button onClick={() => void testChatMessage(message)}>Test Chat</Button>
         <Button variant="secondary" onClick={() => setPreviewOpen(true)}>Preview</Button>
         <Button onClick={() => void saveConfig(config)}>Save Chat</Button>
       </div>
-      <AlertPreviewModal open={previewOpen} target="comment" onClose={() => setPreviewOpen(false)} />
+      <AlertPreviewModal open={previewOpen} target="chat" onClose={() => setPreviewOpen(false)} />
     </section>
   );
 }
@@ -329,7 +329,7 @@ function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: P
   const config = useAppStore((state) => state.config);
   const [ratio, setRatio] = useState<"16:9" | "9:16">("16:9");
   const [backgroundId, setBackgroundId] = useState<PreviewBackgroundId>("transparent");
-  const previewEvent = target === "viewer-count" || target === "like" ? null : sampleAlertEvent(target);
+  const previewEvent = target === "viewer-count" || target === "like" || target === "chat" ? null : sampleAlertEvent(target);
   const alertConfig = previewEvent ? config.alerts[previewEvent.type] : null;
   const previewBackground = previewBackgrounds.find((background) => background.id === backgroundId) ?? previewBackgrounds[0];
 
@@ -357,8 +357,8 @@ function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: P
       <section className="relative grid w-full max-w-6xl gap-4 rounded-lg border border-surfaceMuted bg-[#fffdfa] p-4 shadow-2xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2>{target === "viewer-count" ? "Viewer Count" : typeLabel(target)} Preview</h2>
-            <p className="text-sm text-textMuted">Preview นี้ใช้ renderer เดียวกับ OBS overlay</p>
+            <h2>{target === "viewer-count" ? "Viewer Count" : target === "chat" ? "Chat" : typeLabel(target)} Preview</h2>
+            <p className="text-sm text-textMuted">Preview นี้ใช้ renderer กลางของ widget เดียวกัน</p>
           </div>
           <div className="flex flex-wrap gap-2">
             {(["16:9", "9:16"] as const).map((nextRatio) => (
@@ -374,10 +374,12 @@ function AlertPreviewModal({ open, target, onClose }: { open: boolean; target: P
             <Button type="button" variant="secondary" onClick={onClose}>Close</Button>
           </div>
         </div>
-        <div className={`grid place-items-center rounded-lg p-3 ${previewBackground.className}`}>
+        <div className={`grid place-items-center rounded-lg p-3 ${target === "chat" ? "bg-[#141414]" : previewBackground.className}`}>
           <div className={`relative w-full overflow-hidden rounded-md bg-transparent ${ratio === "16:9" ? "aspect-video max-w-5xl" : "aspect-[9/16] max-h-[70vh] max-w-sm"}`}>
             {previewEvent && alertConfig ? (
               <AlertRenderer key={`${previewEvent.id}-${ratio}`} event={previewEvent} alertConfig={alertConfig} position={config.overlay.alertPosition} />
+            ) : target === "chat" ? (
+              <ChatPreviewWidget key={`chat-${ratio}`} config={config} />
             ) : target === "like" ? (
               <LikeHeartsPreview key={`like-${ratio}`} />
             ) : (
@@ -552,7 +554,7 @@ export function AlertsPage() {
     <Tabs defaultValue="like" className="grid w-full gap-0">
       <TabsList aria-label="Alert settings sections">
         <TabsTrigger value="like">Like</TabsTrigger>
-        <TabsTrigger value="comment">Comment</TabsTrigger>
+        <TabsTrigger value="chat">Chat</TabsTrigger>
         <TabsTrigger value="viewer">Viewer Count</TabsTrigger>
         {alertTypes.map((type) => (
           <TabsTrigger key={type} value={type}>{typeLabel(type)}</TabsTrigger>
@@ -562,8 +564,8 @@ export function AlertsPage() {
       <TabsContent value="like">
         <LikeHeartsConfig />
       </TabsContent>
-      <TabsContent value="comment">
-        <CommentChatConfig />
+      <TabsContent value="chat">
+        <ChatConfigSection />
       </TabsContent>
       <TabsContent value="viewer">
         <ViewerCountConfig />
